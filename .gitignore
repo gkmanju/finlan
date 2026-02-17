@@ -8,3 +8,5 @@ __pycache__/
 README_PRIVATE.md
 .env
 .nas_credentials
+backups/
+data/
