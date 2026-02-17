@@ -1,0 +1,625 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+  <h2 style="margin: 0;">Portfolio Dashboard</h2>
+  <div style="display: flex; gap: 12px;">
+    <a href="/portfolio/upload" style="background: #10b981; color: white; border: none; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600;">📁 Import Data</a>
+    <a href="/portfolio/connect" style="background: #6366f1; color: white; border: none; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600;">🔗 Connect Accounts</a>
+  </div>
+</div>
+
+<!-- Tab Navigation -->
+<div style="display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb;">
+  <button onclick="switchTab('overview')" id="tab-overview" class="tab-btn active" style="padding: 12px 24px; border: none; background: none; cursor: pointer; font-weight: 600; border-bottom: 3px solid #6366f1; color: #6366f1;">Overview</button>
+  <button onclick="switchTab('holdings')" id="tab-holdings" class="tab-btn" style="padding: 12px 24px; border: none; background: none; cursor: pointer; font-weight: 600; border-bottom: 3px solid transparent; color: #6b7280;">Holdings</button>
+  <button onclick="switchTab('transactions')" id="tab-transactions" class="tab-btn" style="padding: 12px 24px; border: none; background: none; cursor: pointer; font-weight: 600; border-bottom: 3px solid transparent; color: #6b7280;">Transactions</button>
+</div>
+
+<!-- Overview Tab -->
+<div id="overview-tab" class="tab-content">
+<!-- Summary Cards -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px;">
+  <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 12px; color: white;">
+    <h3 style="margin: 0 0 10px 0; font-size: 1rem; opacity: 0.9;">Net Worth</h3>
+    <p id="netWorth" style="font-size: 2.5rem; font-weight: 700; margin: 0;">-</p>
+  </div>
+  <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 20px; border-radius: 12px; color: white;">
+    <h3 style="margin: 0 0 10px 0; font-size: 1rem; opacity: 0.9;">Investments</h3>
+    <p id="totalInvestments" style="font-size: 2.5rem; font-weight: 700; margin: 0;">-</p>
+  </div>
+  <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 20px; border-radius: 12px; color: white;">
+    <h3 style="margin: 0 0 10px 0; font-size: 1rem; opacity: 0.9;">Cash & Banks</h3>
+    <p id="totalCash" style="font-size: 2.5rem; font-weight: 700; margin: 0;">-</p>
+  </div>
+  <div style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); padding: 20px; border-radius: 12px; color: white;">
+    <h3 style="margin: 0 0 10px 0; font-size: 1rem; opacity: 0.9;">Holdings</h3>
+    <p id="holdingsCount" style="font-size: 2.5rem; font-weight: 700; margin: 0;">-</p>
+  </div>
+</div>
+
+<!-- Accounts Overview -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
+  <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+    <h3 style="margin: 0 0 20px 0;">Investment Accounts</h3>
+    <div id="investmentAccounts">
+      <p style="color: #6b7280;">No investment accounts yet. <a href="/portfolio/upload">Import data</a> to get started.</p>
+    </div>
+  </div>
+  
+  <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+    <h3 style="margin: 0 0 20px 0;">Bank Accounts</h3>
+    <div id="bankAccounts">
+      <p style="color: #6b7280;">No bank accounts yet. <a href="/portfolio/upload">Import data</a> to get started.</p>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- Holdings Tab -->
+<div id="holdings-tab" class="tab-content" style="display: none;">
+  <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+      <h3 style="margin: 0;">Investment Holdings</h3>
+      <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+        <select id="holdingAccountFilter" onchange="applyHoldingFilters()" style="padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9rem;">
+          <option value="all">All Accounts</option>
+        </select>
+        <select id="assetTypeFilter" onchange="applyHoldingFilters()" style="padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9rem;">
+          <option value="all">All Asset Types</option>
+          <option value="stock">Stocks</option>
+          <option value="mutual fund">Mutual Funds</option>
+          <option value="etf">ETFs</option>
+          <option value="bond">Bonds</option>
+          <option value="cash">Cash</option>
+        </select>
+        <input type="text" id="symbolSearch" onkeyup="applyHoldingFilters()" placeholder="Search symbol..." style="padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9rem; width: 150px;">
+        <button onclick="clearHoldingFilters()" style="padding: 8px 16px; background: #6b7280; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem;">Clear Filters</button>
+      </div>
+    </div>
+    <div id="holdingsStats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; padding: 16px; background: #f9fafb; border-radius: 8px;">
+      <div><strong>Total Holdings:</strong> <span id="holdingsTotal">0</span></div>
+      <div><strong>Total Value:</strong> <span id="holdingsValue">$0.00</span></div>
+      <div><strong>Total Gain/Loss:</strong> <span id="holdingsGainLoss">$0.00</span></div>
+      <div><strong>Filtered:</strong> <span id="holdingsFiltered">0</span></div>
+    </div>
+    <div style="overflow-x: auto;">
+      <table id="holdingsTable" style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr style="background: #1f2937; color: white;">
+            <th style="padding: 12px; text-align: left; cursor: pointer;" onclick="sortHoldingsTable(0)">Institution ⇅</th>
+            <th style="padding: 12px; text-align: left; cursor: pointer;" onclick="sortHoldingsTable(1)">Account ⇅</th>
+            <th style="padding: 12px; text-align: left; cursor: pointer;" onclick="sortHoldingsTable(2)">Symbol ⇅</th>
+            <th style="padding: 12px; text-align: left; cursor: pointer;" onclick="sortHoldingsTable(3)">Name ⇅</th>
+            <th style="padding: 12px; text-align: right; cursor: pointer;" onclick="sortHoldingsTable(4)">Quantity ⇅</th>
+            <th style="padding: 12px; text-align: right; cursor: pointer;" onclick="sortHoldingsTable(5)">Price ⇅</th>
+            <th style="padding: 12px; text-align: right; cursor: pointer;" onclick="sortHoldingsTable(6)">Value ⇅</th>
+            <th style="padding: 12px; text-align: right; cursor: pointer;" onclick="sortHoldingsTable(7)">Gain/Loss ⇅</th>
+            <th style="padding: 12px; text-align: left; cursor: pointer;" onclick="sortHoldingsTable(8)">Type ⇅</th>
+          </tr>
+        </thead>
+        <tbody id="holdingsBody">
+          <tr>
+            <td colspan="8" style="padding: 20px; text-align: center; color: #6b7280;">No holdings data. Import CSV files to see your portfolio.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Transactions Tab -->
+<div id="transactions-tab" class="tab-content" style="display: none;">
+  <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+      <h3 style="margin: 0;">Transaction History</h3>
+      <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+        <select id="txnAccountFilter" onchange="applyTransactionFilters()" style="padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9rem;">
+          <option value="all">All Accounts</option>
+        </select>
+        <select id="txnTypeFilter" onchange="applyTransactionFilters()" style="padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9rem;">
+          <option value="all">All Types</option>
+          <option value="positive">Income/Deposits</option>
+          <option value="negative">Expenses/Withdrawals</option>
+        </select>
+        <input type="date" id="txnDateFrom" onchange="applyTransactionFilters()" style="padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9rem;">
+        <input type="date" id="txnDateTo" onchange="applyTransactionFilters()" style="padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9rem;">
+        <input type="text" id="txnSearch" onkeyup="applyTransactionFilters()" placeholder="Search description..." style="padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9rem; width: 180px;">
+        <button onclick="clearTransactionFilters()" style="padding: 8px 16px; background: #6b7280; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem;">Clear Filters</button>
+      </div>
+    </div>
+    <div id="transactionsStats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; padding: 16px; background: #f9fafb; border-radius: 8px;">
+      <div><strong>Total Transactions:</strong> <span id="txnTotal">0</span></div>
+      <div><strong>Income:</strong> <span id="txnIncome" style="color: #10b981;">$0.00</span></div>
+      <div><strong>Expenses:</strong> <span id="txnExpenses" style="color: #ef4444;">$0.00</span></div>
+      <div><strong>Filtered:</strong> <span id="txnFiltered">0</span></div>
+    </div>
+    <div style="overflow-x: auto;">
+      <table id="transactionsTable" style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr style="background: #f3f4f6;">
+            <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e5e7eb; cursor: pointer;" onclick="sortTransactionsTable(0)">Date ⇅</th>
+            <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e5e7eb; cursor: pointer;" onclick="sortTransactionsTable(1)">Account ⇅</th>
+            <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e5e7eb; cursor: pointer;" onclick="sortTransactionsTable(2)">Description ⇅</th>
+            <th style="padding: 12px; text-align: right; border-bottom: 2px solid #e5e7eb; cursor: pointer;" onclick="sortTransactionsTable(3)">Amount ⇅</th>
+            <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e5e7eb; cursor: pointer;" onclick="sortTransactionsTable(4)">Category ⇅</th>
+          </tr>
+        </thead>
+        <tbody id="transactionsBody">
+          <tr>
+            <td colspan="5" style="padding: 20px; text-align: center; color: #6b7280;">No transactions data. Import CSV files to see transaction history.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+let allHoldings = [];
+let allTransactions = [];
+
+// Tab switching
+function switchTab(tabName) {
+  // Hide all tabs
+  document.querySelectorAll('.tab-content').forEach(tab => tab.style.display = 'none');
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.style.borderBottomColor = 'transparent';
+    btn.style.color = '#6b7280';
+  });
+  
+  // Show selected tab
+  document.getElementById(tabName + '-tab').style.display = 'block';
+  const btn = document.getElementById('tab-' + tabName);
+  btn.style.borderBottomColor = '#6366f1';
+  btn.style.color = '#6366f1';
+}
+
+// Load portfolio data
+function loadPortfolioData() {
+  // Load summary
+  fetch('/portfolio/summary')
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById('netWorth').textContent = '$' + data.net_worth.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+      document.getElementById('totalInvestments').textContent = '$' + data.total_investments.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+      document.getElementById('totalCash').textContent = '$' + data.total_cash.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+      document.getElementById('holdingsCount').textContent = data.holdings_count;
+      
+      // Render investment accounts grouped by institution
+      if (data.investment_accounts.length > 0) {
+        // Group by institution
+        const grouped = {};
+        data.investment_accounts.forEach(acc => {
+          if (!grouped[acc.institution]) {
+            grouped[acc.institution] = [];
+          }
+          grouped[acc.institution].push(acc);
+        });
+        
+        const invHtml = Object.keys(grouped).sort().map(institution => `
+          <div style="margin-bottom: 20px;">
+            <div style="font-weight: 700; color: #6366f1; font-size: 1.1rem; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 2px solid #6366f1;">🏦 ${institution}</div>
+            ${grouped[institution].map(acc => `
+              <div style="padding: 12px; border-bottom: 1px solid #e5e7eb; margin-left: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <div style="cursor: pointer;" onclick="selectAccount('${acc.account_name.replace(/'/g, "\\'")}')" title="Click to filter holdings">
+                    <div style="font-weight: 600; color: #111827; text-decoration: underline; text-decoration-color: #d1d5db;">${acc.account_name}</div>
+                    <div style="font-size: 0.875rem; color: #6b7280;">●●●● ${acc.account_number_last4 || 'N/A'} • ${acc.account_type}</div>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="font-weight: 700; color: #111827;">$${acc.balance.toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
+                    <button onclick="deleteAccount(${acc.id})" style="padding: 4px 8px; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.75rem;">Delete</button>
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `).join('');
+        document.getElementById('investmentAccounts').innerHTML = invHtml;
+      }
+      
+      // Render bank accounts grouped by institution
+      if (data.bank_accounts.length > 0) {
+        // Group by institution
+        const grouped = {};
+        data.bank_accounts.forEach(acc => {
+          if (!grouped[acc.institution]) {
+            grouped[acc.institution] = [];
+          }
+          grouped[acc.institution].push(acc);
+        });
+        
+        const bankHtml = Object.keys(grouped).sort().map(institution => `
+          <div style="margin-bottom: 20px;">
+            <div style="font-weight: 700; color: #10b981; font-size: 1.1rem; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 2px solid #10b981;">🏦 ${institution}</div>
+            ${grouped[institution].map(acc => `
+              <div style="padding: 12px; border-bottom: 1px solid #e5e7eb; margin-left: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <div style="cursor: pointer;" onclick="selectAccount('${acc.account_name.replace(/'/g, "\\'")}')" title="Click to filter holdings">
+                    <div style="font-weight: 600; color: #111827; text-decoration: underline; text-decoration-color: #d1d5db;">${acc.account_name}</div>
+                    <div style="font-size: 0.875rem; color: #6b7280;">●●●● ${acc.account_number_last4 || 'N/A'} • ${acc.account_type}</div>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="font-weight: 700; color: #111827;">$${acc.balance.toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
+                    <button onclick="deleteAccount(${acc.id})" style="padding: 4px 8px; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.75rem;">Delete</button>
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `).join('');
+        document.getElementById('bankAccounts').innerHTML = bankHtml;
+      }
+    })
+    .catch(err => console.error('Error loading summary:', err));
+  
+  // Load holdings
+  fetch('/portfolio/holdings')
+    .then(r => r.json())
+    .then(data => {
+      allHoldings = data;
+      if (data.length > 0) {
+        // Populate account filters
+        const accounts = [...new Set(data.map(h => h.account))].sort();
+        const holdingFilter = document.getElementById('holdingAccountFilter');
+        if (holdingFilter) {
+           const safeAccounts = accounts.map(acc => {
+               const safeVal = acc.replace(/"/g, '&quot;'); 
+               return `<option value="${safeVal}">${acc}</option>`;
+           }).join('');
+           holdingFilter.innerHTML = '<option value="all">All Accounts</option>' + safeAccounts;
+        }
+        renderHoldings(data);
+      }
+    })
+    .catch(err => console.error('Error loading holdings:', err));
+  
+  // Load transactions
+  fetch('/portfolio/transactions?limit=1000')
+    .then(r => r.json())
+    .then(data => {
+      allTransactions = data;
+      if (data.length > 0) {
+        // Populate transaction account filter
+        const accounts = [...new Set(data.map(t => t.account))].sort();
+        const txnFilter = document.getElementById('txnAccountFilter');
+        if (txnFilter) {
+           const safeAccounts = accounts.map(acc => {
+               const safeVal = acc.replace(/"/g, '&quot;'); 
+               return `<option value="${safeVal}">${acc}</option>`;
+           }).join('');
+           txnFilter.innerHTML = '<option value="all">All Accounts</option>' + safeAccounts;
+        }
+        renderTransactions(data);
+      }
+    })
+    .catch(err => console.error('Error loading transactions:', err));
+}
+
+// Render functions
+function renderHoldings(holdings) {
+  if (holdings.length === 0) {
+    document.getElementById('holdingsBody').innerHTML = '<tr><td colspan="9" style="padding: 20px; text-align: center; color: #6b7280;">No holdings match the filters.</td></tr>';
+    updateHoldingsStats(holdings);
+    return;
+  }
+  
+  const html = holdings.map(h => {
+    const gainLoss = h.gain_loss !== null ? h.gain_loss : 0;
+    const gainLossColor = gainLoss >= 0 ? '#10b981' : '#ef4444';
+    const gainLossSign = gainLoss >= 0 ? '+' : '';
+    const safeAccountAttr = h.account.replace(/"/g, '&quot;');
+    
+    return `
+      <tr style="border-bottom: 1px solid #e5e7eb;" data-account="${safeAccountAttr}" data-symbol="${h.symbol}" data-type="${h.asset_type || ''}">
+        <td style="padding: 12px; font-weight: 600; color: #6366f1;">${h.institution || 'Unknown'}</td>
+        <td style="padding: 12px;">${h.account}</td>
+        <td style="padding: 12px; font-weight: 600;">${h.symbol}</td>
+        <td style="padding: 12px;">${h.name || '-'}</td>
+        <td style="padding: 12px; text-align: right;">${h.quantity.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+        <td style="padding: 12px; text-align: right;">$${h.current_price ? h.current_price.toLocaleString('en-US', {minimumFractionDigits: 2}) : '-'}</td>
+        <td style="padding: 12px; text-align: right; font-weight: 600;">$${h.current_value ? h.current_value.toLocaleString('en-US', {minimumFractionDigits: 2}) : '-'}</td>
+        <td style="padding: 12px; text-align: right; color: ${gainLossColor}; font-weight: 600;">${gainLossSign}$${Math.abs(gainLoss).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+        <td style="padding: 12px;">${h.asset_type || '-'}</td>
+      </tr>
+    `;
+  }).join('');
+  document.getElementById('holdingsBody').innerHTML = html;
+  updateHoldingsStats(holdings);
+}
+
+function renderTransactions(transactions) {
+  if (transactions.length === 0) {
+    document.getElementById('transactionsBody').innerHTML = '<tr><td colspan="5" style="padding: 20px; text-align: center; color: #6b7280;">No transactions match the filters.</td></tr>';
+    updateTransactionsStats(transactions);
+    return;
+  }
+  
+  const html = transactions.map(t => {
+    const amountColor = t.amount >= 0 ? '#10b981' : '#ef4444';
+    const amountSign = t.amount >= 0 ? '+' : '';
+    
+    return `
+      <tr style="border-bottom: 1px solid #e5e7eb;" data-account="${t.account}" data-date="${t.date}" data-amount="${t.amount}" data-description="${t.description.toLowerCase()}">
+        <td style="padding: 12px;">${t.date}</td>
+        <td style="padding: 12px;">${t.account}</td>
+        <td style="padding: 12px;">${t.description}</td>
+        <td style="padding: 12px; text-align: right; color: ${amountColor}; font-weight: 600;">${amountSign}$${Math.abs(t.amount).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+        <td style="padding: 12px;">${t.category || '-'}</td>
+      </tr>
+    `;
+  }).join('');
+  document.getElementById('transactionsBody').innerHTML = html;
+  updateTransactionsStats(transactions);
+}
+
+// Filter functions
+function applyHoldingFilters() {
+  const account = document.getElementById('holdingAccountFilter').value;
+  const assetType = document.getElementById('assetTypeFilter').value;
+  const symbolSearch = document.getElementById('symbolSearch').value.toLowerCase();
+  
+  let filtered = allHoldings;
+  
+  if (account !== 'all') {
+    filtered = filtered.filter(h => h.account === account);
+  }
+  
+  if (assetType !== 'all') {
+    filtered = filtered.filter(h => h.asset_type && h.asset_type.toLowerCase() === assetType);
+  }
+  
+  if (symbolSearch) {
+    filtered = filtered.filter(h => h.symbol.toLowerCase().includes(symbolSearch) || (h.name && h.name.toLowerCase().includes(symbolSearch)));
+  }
+  
+  renderHoldings(filtered);
+}
+
+function clearHoldingFilters() {
+  document.getElementById('holdingAccountFilter').value = 'all';
+  document.getElementById('assetTypeFilter').value = 'all';
+  document.getElementById('symbolSearch').value = '';
+  renderHoldings(allHoldings);
+}
+
+function applyTransactionFilters() {
+  const account = document.getElementById('txnAccountFilter').value;
+  const type = document.getElementById('txnTypeFilter').value;
+  const dateFrom = document.getElementById('txnDateFrom').value;
+  const dateTo = document.getElementById('txnDateTo').value;
+  const search = document.getElementById('txnSearch').value.toLowerCase();
+  
+  let filtered = allTransactions;
+  
+  if (account !== 'all') {
+    filtered = filtered.filter(t => t.account === account);
+  }
+  
+  if (type === 'positive') {
+    filtered = filtered.filter(t => t.amount >= 0);
+  } else if (type === 'negative') {
+    filtered = filtered.filter(t => t.amount < 0);
+  }
+  
+  if (dateFrom) {
+    filtered = filtered.filter(t => t.date >= dateFrom);
+  }
+  
+  if (dateTo) {
+    filtered = filtered.filter(t => t.date <= dateTo);
+  }
+  
+  if (search) {
+    filtered = filtered.filter(t => t.description.toLowerCase().includes(search));
+  }
+  
+  renderTransactions(filtered);
+}
+
+function clearTransactionFilters() {
+  document.getElementById('txnAccountFilter').value = 'all';
+  document.getElementById('txnTypeFilter').value = 'all';
+  document.getElementById('txnDateFrom').value = '';
+  document.getElementById('txnDateTo').value = '';
+  document.getElementById('txnSearch').value = '';
+  renderTransactions(allTransactions);
+}
+
+// Stats update functions
+function updateHoldingsStats(holdings) {
+  const totalValue = holdings.reduce((sum, h) => sum + (h.current_value || 0), 0);
+  const totalGainLoss = holdings.reduce((sum, h) => sum + (h.gain_loss || 0), 0);
+  
+  document.getElementById('holdingsTotal').textContent = allHoldings.length;
+  document.getElementById('holdingsValue').textContent = '$' + totalValue.toLocaleString('en-US', {minimumFractionDigits: 2});
+  document.getElementById('holdingsGainLoss').textContent = '$' + totalGainLoss.toLocaleString('en-US', {minimumFractionDigits: 2});
+  document.getElementById('holdingsGainLoss').style.color = totalGainLoss >= 0 ? '#10b981' : '#ef4444';
+  document.getElementById('holdingsFiltered').textContent = holdings.length;
+}
+
+function updateTransactionsStats(transactions) {
+  const income = transactions.reduce((sum, t) => sum + (t.amount >= 0 ? t.amount : 0), 0);
+  const expenses = transactions.reduce((sum, t) => sum + (t.amount < 0 ? Math.abs(t.amount) : 0), 0);
+  
+  document.getElementById('txnTotal').textContent = allTransactions.length;
+  document.getElementById('txnIncome').textContent = '$' + income.toLocaleString('en-US', {minimumFractionDigits: 2});
+  document.getElementById('txnExpenses').textContent = '$' + expenses.toLocaleString('en-US', {minimumFractionDigits: 2});
+  document.getElementById('txnFiltered').textContent = transactions.length;
+}
+
+// Sorting functions
+let holdingSortColumn = -1;
+let holdingSortAsc = true;
+
+function sortHoldingsTable(col) {
+  if (holdingSortColumn === col) {
+    holdingSortAsc = !holdingSortAsc;
+  } else {
+    holdingSortColumn = col;
+    holdingSortAsc = true;
+  }
+  
+  const sorted = [...allHoldings].sort((a, b) => {
+    let aVal, bVal;
+    switch(col) {
+      case 0: aVal = a.account; bVal = b.account; break;
+      case 1: aVal = a.symbol; bVal = b.symbol; break;
+      case 2: aVal = a.name || ''; bVal = b.name || ''; break;
+      case 3: aVal = a.quantity; bVal = b.quantity; break;
+      case 4: aVal = a.current_price || 0; bVal = b.current_price || 0; break;
+      case 5: aVal = a.current_value || 0; bVal = b.current_value || 0; break;
+      case 6: aVal = a.gain_loss || 0; bVal = b.gain_loss || 0; break;
+      case 7: aVal = a.asset_type || ''; bVal = b.asset_type || ''; break;
+    }
+    
+    if (typeof aVal === 'string') {
+      return holdingSortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+    } else {
+      return holdingSortAsc ? aVal - bVal : bVal - aVal;
+    }
+  });
+  
+  allHoldings = sorted;
+  applyHoldingFilters();
+}
+
+let txnSortColumn = -1;
+let txnSortAsc = true;
+
+function sortTransactionsTable(col) {
+  if (txnSortColumn === col) {
+    txnSortAsc = !txnSortAsc;
+  } else {
+    txnSortColumn = col;
+    txnSortAsc = true;
+  }
+  
+  const sorted = [...allTransactions].sort((a, b) => {
+    let aVal, bVal;
+    switch(col) {
+      case 0: aVal = a.date; bVal = b.date; break;
+      case 1: aVal = a.account; bVal = b.account; break;
+      case 2: aVal = a.description; bVal = b.description; break;
+      case 3: aVal = a.amount; bVal = b.amount; break;
+      case 4: aVal = a.category || ''; bVal = b.category || ''; break;
+    }
+    
+    if (typeof aVal === 'string') {
+      return txnSortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+    } else {
+      return txnSortAsc ? aVal - bVal : bVal - aVal;
+    }
+  });
+  
+  allTransactions = sorted;
+  applyTransactionFilters();
+}
+
+async function deleteAccount(accountId) {
+  if (!confirm('Are you sure you want to delete this account? This will also delete all associated holdings.')) {
+    return;
+  }
+  
+  try {
+    const response = await fetch(`/portfolio/accounts/${accountId}`, {
+      method: 'DELETE'
+    });
+    
+    if (response.ok) {
+      alert('Account deleted successfully');
+      loadPortfolioData();
+    } else {
+      alert('Error deleting account');
+    }
+  } catch (error) {
+    console.error('Error:', error);
+    alert('Error deleting account');
+  }
+}
+
+function selectAccount(accountName) {
+  switchTab('holdings');
+  setTimeout(() => {
+    const select = document.getElementById('holdingAccountFilter');
+    if (select) {
+      let options = Array.from(select.options);
+      let match = options.find(o => o.value === accountName);
+      
+      if (match) {
+        select.value = accountName;
+        applyHoldingFilters();
+      }
+    }
+  }, 100);
+}
+
+async function syncAccounts() {
+  const syncBtn = event.target;
+  syncBtn.disabled = true;
+  syncBtn.textContent = '🔄 Syncing...';
+  
+  try {
+    // Try Fidelity automated sync first
+    const fidelityResponse = await fetch('/portfolio/sync/fidelity', {
+      method: 'POST'
+    });
+    
+    if (fidelityResponse.ok) {
+      const fidelityData = await fidelityResponse.json();
+      
+      // Reload data
+      loadPortfolioData();
+      
+      alert(`✓ Fidelity sync complete!\n${fidelityData.message}`);
+      syncBtn.disabled = false;
+      syncBtn.textContent = '🔄 Sync Now';
+      return;
+    } else if (fidelityResponse.status === 404) {
+      // No credentials, fall back to price sync
+      console.log('No Fidelity credentials, falling back to price sync');
+    } else {
+      // Error with Fidelity sync
+      const errorData = await fidelityResponse.json();
+      throw new Error(errorData.detail || 'Fidelity sync failed');
+    }
+    
+    // Fall back to price sync
+    const priceResponse = await fetch('/portfolio/sync/prices', {
+      method: 'POST'
+    });
+    
+    if (!priceResponse.ok) {
+      throw new Error('Price sync failed');
+    }
+    
+    const priceData = await priceResponse.json();
+    
+    // Then sync account balances
+    const accountResponse = await fetch('/portfolio/sync/accounts', {
+      method: 'POST'
+    });
+    
+    if (!accountResponse.ok) {
+      throw new Error('Account sync failed');
+    }
+    
+    const accountData = await accountResponse.json();
+    
+    // Reload data
+    loadPortfolioData();
+    
+    alert(`✓ Price sync complete!\n${priceData.message}\n${accountData.message}\n\nTip: Use "Connect Financial Accounts" to add more banks via Plaid.`);
+  } catch (error) {
+    console.error('Sync error:', error);
+    alert('✗ Sync failed: ' + error.message);
+  } finally {
+    syncBtn.disabled = false;
+    syncBtn.textContent = '🔄 Sync Now';
+  }
+}
+
+// Load on page load
+loadPortfolioData();
+</script>
+{% endblock %}

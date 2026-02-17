@@ -1,0 +1,497 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+  <h2 style="margin: 0;">Import Portfolio Data</h2>
+  <a href="/portfolio" style="background: #6b7280; color: white; border: none; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600;">Back to Portfolio</a>
+</div>
+
+<!-- Quick Bulk Upload Section -->
+<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 12px; color: white; margin-bottom: 30px;">
+  <div style="display: flex; justify-content: space-between; align-items: center;">
+    <div>
+      <h3 style="margin: 0 0 10px 0; font-size: 1.5rem;">🚀 Bulk Upload - Drag & Drop</h3>
+      <p style="margin: 0; opacity: 0.9;">Upload multiple files at once - we'll automatically detect formats and import everything!</p>
+    </div>
+    <button onclick="showBulkUpload()" style="background: white; color: #667eea; border: none; padding: 14px 28px; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 1.1rem; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
+      Start Bulk Upload →
+    </button>
+  </div>
+</div>
+
+<!-- Bulk Upload Modal -->
+<div id="bulkUploadModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; overflow: auto; padding: 40px;">
+  <div style="background: white; max-width: 1000px; margin: 0 auto; border-radius: 16px; padding: 40px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+      <h2 style="margin: 0;">📁 Bulk Upload Files</h2>
+      <button onclick="closeBulkUpload()" style="background: #ef4444; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600;">Close</button>
+    </div>
+    
+    <div id="dropZone" style="border: 3px dashed #d1d5db; border-radius: 12px; padding: 60px 40px; text-align: center; background: #f9fafb; cursor: pointer; transition: all 0.3s ease; margin-bottom: 20px;">
+      <svg style="width: 64px; height: 64px; margin: 0 auto 20px; color: #9ca3af;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+      </svg>
+      <p style="font-size: 1.2rem; font-weight: 600; color: #374151; margin-bottom: 8px;">Drop files here or click to browse</p>
+      <p style="color: #6b7280; font-size: 0.95rem;">CSV and PDF files from banks and brokerages</p>
+      <input type="file" id="bulkFileInput" multiple accept=".csv,.pdf" style="display: none;" />
+    </div>
+    
+    <div id="bulkFileList" style="display: none; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; max-height: 300px; overflow-y: auto; margin-bottom: 20px;"></div>
+    
+    <div style="display: flex; gap: 12px;">
+      <button id="bulkUploadBtn" onclick="uploadBulkFiles()" style="background: #10b981; color: white; border: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 1rem; display: none;">🚀 Upload & Process</button>
+      <button id="bulkClearBtn" onclick="clearBulkFiles()" style="background: #6b7280; color: white; border: none; padding: 14px 24px; border-radius: 8px; font-weight: 600; cursor: pointer; display: none;">Clear All</button>
+    </div>
+    
+    <div id="bulkProgress" style="display: none; margin-top: 20px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px;">
+      <p style="font-weight: 600; margin-bottom: 12px;">Processing files...</p>
+      <div style="width: 100%; background: #e5e7eb; border-radius: 8px; height: 8px; overflow: hidden;">
+        <div id="bulkProgressBar" style="background: #10b981; height: 100%; width: 0%; transition: width 0.3s ease;"></div>
+      </div>
+      <p id="bulkProgressText" style="margin-top: 8px; color: #6b7280; font-size: 0.9rem;"></p>
+    </div>
+    
+    <div id="bulkResults" style="display: none; margin-top: 20px;"></div>
+  </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+  <!-- Create Account Section -->
+  <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+    <h3 style="margin: 0 0 20px 0;">1. Create Account</h3>
+    <p style="color: #6b7280; margin-bottom: 20px;">First, create an account to associate your data with.</p>
+    
+    <form id="accountForm" style="display: flex; flex-direction: column; gap: 16px;">
+      <div>
+        <label style="display: block; font-weight: 600; margin-bottom: 6px;">Institution</label>
+        <select id="institution" required style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+          <option value="">Select institution...</option>
+          <option value="Fidelity">Fidelity</option>
+          <option value="Vanguard">Vanguard</option>
+          <option value="Robinhood">Robinhood</option>
+          <option value="E*TRADE">E*TRADE</option>
+          <option value="Public">Public</option>
+          <option value="Chase Bank">Chase Bank</option>
+          <option value="US Bank">US Bank</option>
+          <option value="Other">Other (type below)</option>
+        </select>
+      </div>
+      
+      <div id="customInstitution" style="display: none;">
+        <label style="display: block; font-weight: 600; margin-bottom: 6px;">Custom Institution Name</label>
+        <input type="text" id="customInstitutionName" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;" />
+      </div>
+      
+      <div>
+        <label style="display: block; font-weight: 600; margin-bottom: 6px;">Account Type</label>
+        <select id="accountType" required style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+          <option value="">Select type...</option>
+          <option value="investment">Investment/Brokerage</option>
+          <option value="checking">Checking</option>
+          <option value="savings">Savings</option>
+          <option value="credit_card">Credit Card</option>
+        </select>
+      </div>
+      
+      <div>
+        <label style="display: block; font-weight: 600; margin-bottom: 6px;">Account Name (Optional)</label>
+        <input type="text" id="accountName" placeholder="e.g., My 401(k), Joint Checking" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;" />
+      </div>
+      
+      <div>
+        <label style="display: block; font-weight: 600; margin-bottom: 6px;">Last 4 digits (Optional)</label>
+        <input type="text" id="accountLast4" maxlength="4" placeholder="1234" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;" />
+      </div>
+      
+      <button type="submit" style="background: #10b981; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: 600;">Create Account</button>
+    </form>
+    
+    <div id="accountResult" style="margin-top: 20px;"></div>
+  </div>
+  
+  <!-- Upload CSV Section -->
+  <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+    <h3 style="margin: 0 0 20px 0;">2. Upload CSV Data</h3>
+    <p style="color: #6b7280; margin-bottom: 20px;">Upload CSV files from your financial institution.</p>
+    
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+      <div>
+        <label style="display: block; font-weight: 600; margin-bottom: 6px;">Select Account <span style="color: #9ca3af; font-weight: 400;">(optional for Fidelity account summary CSV)</span></label>
+        <select id="uploadAccount" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+          <option value="">Auto-detect from CSV (for Fidelity)</option>
+        </select>
+      </div>
+      
+      <div>
+        <label style="display: block; font-weight: 600; margin-bottom: 6px;">Data Type</label>
+        <select id="dataType" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+          <option value="holdings">Holdings (Stocks/ETFs/Funds)</option>
+          <option value="transactions">Transactions (Bank/Credit Card)</option>
+        </select>
+      </div>
+      
+      <div>
+        <label style="display: block; font-weight: 600; margin-bottom: 6px;">CSV File</label>
+        <input type="file" id="csvFile" accept=".csv" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;" />
+      </div>
+      
+      <button onclick="uploadCSV()" style="background: #8b5cf6; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: 600;">Upload CSV</button>
+      
+      <div id="uploadResult" style="margin-top: 10px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Existing Accounts List -->
+<div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-top: 20px;">
+  <h3 style="margin: 0 0 20px 0;">Your Accounts</h3>
+  <div id="accountsList">
+    <p style="color: #6b7280;">No accounts yet. Create one above to get started.</p>
+  </div>
+</div>
+
+<script>
+// Handle custom institution input
+document.getElementById('institution').addEventListener('change', function() {
+  const customDiv = document.getElementById('customInstitution');
+  if (this.value === 'Other') {
+    customDiv.style.display = 'block';
+  } else {
+    customDiv.style.display = 'none';
+  }
+});
+
+// Create account
+document.getElementById('accountForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  
+  let institution = document.getElementById('institution').value;
+  if (institution === 'Other') {
+    institution = document.getElementById('customInstitutionName').value;
+    if (!institution) {
+      alert('Please enter a custom institution name');
+      return;
+    }
+  }
+  
+  const accountType = document.getElementById('accountType').value;
+  const accountName = document.getElementById('accountName').value;
+  const accountLast4 = document.getElementById('accountLast4').value;
+  
+  const formData = new URLSearchParams();
+  formData.append('institution', institution);
+  formData.append('account_type', accountType);
+  if (accountName) formData.append('account_name', accountName);
+  if (accountLast4) formData.append('account_number_last4', accountLast4);
+  
+  try {
+    const response = await fetch('/portfolio/accounts', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: formData
+    });
+    
+    const data = await response.json();
+    
+    document.getElementById('accountResult').innerHTML = `
+      <div style="padding: 12px; background: #d1fae5; border: 1px solid #10b981; border-radius: 6px; color: #065f46;">
+        ✓ Account created: ${data.account_name || data.institution}
+      </div>
+    `;
+    
+    // Reset form
+    document.getElementById('accountForm').reset();
+    
+    // Reload accounts list
+    loadAccounts();
+  } catch (error) {
+    document.getElementById('accountResult').innerHTML = `
+      <div style="padding: 12px; background: #fee2e2; border: 1px solid #ef4444; border-radius: 6px; color: #991b1b;">
+        ✗ Error: ${error.message}
+      </div>
+    `;
+  }
+});
+
+// Load accounts
+async function loadAccounts() {
+  try {
+    const response = await fetch('/portfolio/accounts');
+    const accounts = await response.json();
+    
+    // Update dropdown
+    const select = document.getElementById('uploadAccount');
+    if (accounts.length > 0) {
+      select.innerHTML = '<option value="">Auto-detect from CSV (for Fidelity)</option>' + 
+        accounts.map(acc => `<option value="${acc.id}">${acc.account_name} (${acc.institution})</option>`).join('');
+      
+      // Update accounts list
+      const listHtml = accounts.map(acc => `
+        <div style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
+          <div style="display: flex; justify-content: space-between;">
+            <div>
+              <div style="font-weight: 600;">${acc.account_name}</div>
+              <div style="font-size: 0.875rem; color: #6b7280;">${acc.institution} • ${acc.account_type}${acc.account_number_last4 ? ' • ...' + acc.account_number_last4 : ''}</div>
+            </div>
+            <div style="font-weight: 700;">$${acc.balance.toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
+          </div>
+        </div>
+      `).join('');
+      document.getElementById('accountsList').innerHTML = listHtml;
+    } else {
+      select.innerHTML = '<option value="">No accounts yet</option>';
+    }
+  } catch (error) {
+    console.error('Error loading accounts:', error);
+  }
+}
+
+// Upload CSV
+async function uploadCSV() {
+  const accountId = document.getElementById('uploadAccount').value;
+  const dataType = document.getElementById('dataType').value;
+  const fileInput = document.getElementById('csvFile');
+  
+  if (!fileInput.files[0]) {
+    alert('Please select a CSV file');
+    return;
+  }
+  
+  const formData = new FormData();
+  formData.append('file', fileInput.files[0]);
+  if (accountId) {
+    formData.append('account_id', accountId);
+  }
+  
+  const endpoint = dataType === 'holdings' ? '/portfolio/upload/holdings' : '/portfolio/upload/transactions';
+  
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      body: formData
+    });
+    
+    const data = await response.json();
+    
+    document.getElementById('uploadResult').innerHTML = `
+      <div style="padding: 12px; background: #d1fae5; border: 1px solid #10b981; border-radius: 6px; color: #065f46;">
+        ✓ Imported ${data.imported} records${data.skipped ? ` (${data.skipped} duplicates skipped)` : ''}
+      </div>
+    `;
+    
+    // Clear file input
+    fileInput.value = '';
+    
+    // Reload accounts to update balances
+    setTimeout(loadAccounts, 1000);
+  } catch (error) {
+    document.getElementById('uploadResult').innerHTML = `
+      <div style="padding: 12px; background: #fee2e2; border: 1px solid #ef4444; border-radius: 6px; color: #991b1b;">
+        ✗ Error: ${error.message}
+      </div>
+    `;
+  }
+}
+
+// Load accounts on page load
+loadAccounts();
+
+// Bulk Upload Functions
+let bulkSelectedFiles = [];
+
+function showBulkUpload() {
+  document.getElementById('bulkUploadModal').style.display = 'block';
+  initBulkUploadHandlers();
+}
+
+function closeBulkUpload() {
+  document.getElementById('bulkUploadModal').style.display = 'none';
+  clearBulkFiles();
+}
+
+function initBulkUploadHandlers() {
+  const dropZone = document.getElementById('dropZone');
+  const bulkFileInput = document.getElementById('bulkFileInput');
+  
+  if (!dropZone || !bulkFileInput) return;
+  if (dropZone.dataset.initialized) return;
+  dropZone.dataset.initialized = 'true';
+
+  dropZone.addEventListener('click', () => bulkFileInput.click());
+
+  dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.style.borderColor = '#10b981';
+    dropZone.style.background = '#ecfdf5';
+  });
+
+  dropZone.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    dropZone.style.borderColor = '#d1d5db';
+    dropZone.style.background = '#f9fafb';
+  });
+
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.style.borderColor = '#d1d5db';
+    dropZone.style.background = '#f9fafb';
+    const files = Array.from(e.dataTransfer.files);
+    addBulkFiles(files);
+  });
+
+  bulkFileInput.addEventListener('change', (e) => {
+    const files = Array.from(e.target.files);
+    addBulkFiles(files);
+  });
+}
+
+function addBulkFiles(files) {
+  bulkSelectedFiles = [...bulkSelectedFiles, ...files];
+  updateBulkFileList();
+}
+
+function updateBulkFileList() {
+  const listDiv = document.getElementById('bulkFileList');
+  const uploadBtn = document.getElementById('bulkUploadBtn');
+  const clearBtn = document.getElementById('bulkClearBtn');
+  
+  if (bulkSelectedFiles.length === 0) {
+    listDiv.style.display = 'none';
+    uploadBtn.style.display = 'none';
+    clearBtn.style.display = 'none';
+    return;
+  }
+  
+  listDiv.style.display = 'block';
+  uploadBtn.style.display = 'inline-block';
+  clearBtn.style.display = 'inline-block';
+  
+  listDiv.innerHTML = bulkSelectedFiles.map((file, index) => {
+    const fileIcon = file.name.endsWith('.pdf') ? '📄' : '📊';
+    const fileSize = (file.size / 1024).toFixed(1) + ' KB';
+    return `
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #e5e7eb;">
+        <div><span style="font-weight: 600;">${fileIcon} ${file.name}</span> <span style="color: #6b7280; font-size: 0.85rem;">${fileSize}</span></div>
+        <button onclick="removeBulkFile(${index})" style="background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">Remove</button>
+      </div>
+    `;
+  }).join('');
+}
+
+function removeBulkFile(index) {
+  bulkSelectedFiles.splice(index, 1);
+  updateBulkFileList();
+}
+
+function clearBulkFiles() {
+  bulkSelectedFiles = [];
+  bulkFileInput.value = '';
+  updateBulkFileList();
+  document.getElementById('bulkResults').style.display = 'none';
+}
+
+async function uploadBulkFiles() {
+  if (bulkSelectedFiles.length === 0) {
+    alert('Please select files to upload');
+    return;
+  }
+  
+  const formData = new FormData();
+  bulkSelectedFiles.forEach(file => formData.append('files', file));
+  
+  const progressDiv = document.getElementById('bulkProgress');
+  const progressBar = document.getElementById('bulkProgressBar');
+  const progressText = document.getElementById('bulkProgressText');
+  const uploadBtn = document.getElementById('bulkUploadBtn');
+  
+  progressDiv.style.display = 'block';
+  progressBar.style.width = '0%';
+  progressText.textContent = 'Uploading files...';
+  uploadBtn.disabled = true;
+  
+  try {
+    let progress = 0;
+    const progressInterval = setInterval(() => {
+      progress += 10;
+      if (progress <= 90) progressBar.style.width = progress + '%';
+    }, 200);
+    
+    const response = await fetch('/portfolio/bulk-upload', {
+      method: 'POST',
+      body: formData
+    });
+    
+    clearInterval(progressInterval);
+    progressBar.style.width = '100%';
+    
+    const result = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(result.detail || 'Upload failed');
+    }
+    
+    progressText.textContent = 'Processing complete!';
+    
+    setTimeout(() => {
+      progressDiv.style.display = 'none';
+      displayBulkResults(result);
+      uploadBtn.disabled = false;
+      loadAccounts();
+    }, 1000);
+    
+  } catch (error) {
+    progressDiv.style.display = 'none';
+    uploadBtn.disabled = false;
+    alert('Error: ' + error.message);
+  }
+}
+
+function displayBulkResults(result) {
+  const resultsDiv = document.getElementById('bulkResults');
+  resultsDiv.style.display = 'block';
+  resultsDiv.innerHTML = `
+    <div style="background: #ecfdf5; border: 1px solid #10b981; border-radius: 8px; padding: 24px;">
+      <h3 style="color: #059669; margin-bottom: 16px;">✅ Upload Complete!</h3>
+      
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px;">
+        <div style="text-align: center; padding: 16px; background: white; border-radius: 8px;">
+          <div style="font-size: 2rem; font-weight: 700; color: #059669;">${result.summary.files_processed}</div>
+          <div style="color: #6b7280; font-size: 0.9rem;">Files</div>
+        </div>
+        <div style="text-align: center; padding: 16px; background: white; border-radius: 8px;">
+          <div style="font-size: 2rem; font-weight: 700; color: #2563eb;">${result.summary.transactions_imported}</div>
+          <div style="color: #6b7280; font-size: 0.9rem;">Transactions</div>
+        </div>
+        <div style="text-align: center; padding: 16px; background: white; border-radius: 8px;">
+          <div style="font-size: 2rem; font-weight: 700; color: #d97706;">${result.summary.holdings_imported}</div>
+          <div style="color: #6b7280; font-size: 0.9rem;">Holdings</div>
+        </div>
+        <div style="text-align: center; padding: 16px; background: white; border-radius: 8px;">
+          <div style="font-size: 2rem; font-weight: 700; color: #7c3aed;">${result.summary.accounts_updated}</div>
+          <div style="color: #6b7280; font-size: 0.9rem;">Accounts</div>
+        </div>
+      </div>
+      
+      ${result.success.length > 0 ? `
+        <div style="margin-bottom: 16px;">
+          <h4 style="color: #059669; margin-bottom: 8px;">✓ Successfully Imported:</h4>
+          <ul style="color: #374151; padding-left: 20px;">
+            ${result.success.map(msg => `<li style="margin: 4px 0;">${msg}</li>`).join('')}
+          </ul>
+        </div>
+      ` : ''}
+      
+      ${result.errors.length > 0 ? `
+        <div>
+          <h4 style="color: #dc2626; margin-bottom: 8px;">⚠ Errors:</h4>
+          <ul style="color: #991b1b; padding-left: 20px;">
+            ${result.errors.map(err => `<li style="margin: 4px 0;">${err}</li>`).join('')}
+          </ul>
+        </div>
+      ` : ''}
+    </div>
+  `;
+  
+  clearBulkFiles();
+}
+</script>
+{% endblock %}

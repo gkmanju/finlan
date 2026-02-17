@@ -1,0 +1,10 @@
+.venv/
+*.db
+*.sqlite
+*.log
+uploads/
+__pycache__/
+*.pyc
+README_PRIVATE.md
+.env
+.nas_credentials

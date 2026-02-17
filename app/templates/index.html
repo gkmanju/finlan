@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="cards">
+  <div class="card">
+    <h3>Income</h3>
+    <p>{{ income_total }}</p>
+  </div>
+  <div class="card">
+    <h3>Expenses</h3>
+    <p>{{ expense_total }}</p>
+  </div>
+  <div class="card">
+    <h3>Net</h3>
+    <p>{{ net }}</p>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,622 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+  <h2 style="margin: 0;">HSA Receipts</h2>
+  <div style="display: flex; gap: 12px;">
+    <a href="/analytics" style="background: #8b5cf6; color: white; border: none; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600; display: inline-block;">📊 View Analytics</a>
+    <a href="/receipts/export/csv" style="background: #10b981; color: white; border: none; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600; display: inline-block;">Download CSV Export</a>
+  </div>
+</div>
+<section>
+  <form id="receiptForm" action="/receipts/" method="post" enctype="multipart/form-data" class="upload-form">
+    <div style="grid-column: 1 / -1; display: flex; gap: 12px; align-items: center;">
+      <div style="flex: 1;">
+        <label>Receipt File(s) <span style="color: #6b7280; font-size: 0.9rem;">(select multiple for same claim)</span></label>
+        <input type="file" id="fileInput" name="file" required accept=".pdf,.jpg,.jpeg,.png" multiple />
+        <div id="fileList" style="margin-top: 8px; font-size: 0.9rem; color: #6b7280;"></div>
+      </div>
+      <button type="button" id="scanBtn" disabled style="margin-top: 22px; background: #9ca3af; color: #6b7280; border: none; padding: 12px 20px; border-radius: 8px; cursor: not-allowed; opacity: 0.6;" title="OCR scanning disabled - manual entry only">Scan Receipt (Disabled)</button>
+    </div>
+    <div>
+      <label>Service Date</label>
+      <input type="date" id="service_date" name="service_date" required />
+    </div>
+    <div>
+      <label>Provider</label>
+      <input type="text" id="provider" name="provider" required placeholder="e.g., ABC Medical Center" />
+    </div>
+    <div>
+      <label>Patient Name</label>
+      <input type="text" id="patient_name" name="patient_name" placeholder="Patient name" />
+    </div>
+    <div>
+      <label>Category</label>
+      <input type="text" id="category" name="category" placeholder="e.g., Dental, Vision, Medical" />
+    </div>
+    <div>
+      <label>Amount</label>
+      <input type="number" id="amount" name="amount" step="0.01" placeholder="0.00" />
+    </div>
+    <div>
+      <label>Payment Method</label>
+      <select id="payment_method" name="payment_method">
+        <option value="">Select...</option>
+        <option value="HSA Card">HSA Card</option>
+        <option value="Personal Card">Personal Card</option>
+        <option value="Cash">Cash</option>
+        <option value="Check">Check</option>
+      </select>
+    </div>
+    <div>
+      <label>Paid Date</label>
+      <input type="date" id="paid_date" name="paid_date" />
+    </div>
+    <div>
+      <label>Submitted Date</label>
+      <input type="date" id="submitted_date" name="submitted_date" />
+    </div>
+    <div>
+      <label>Reimbursed</label>
+      <input type="checkbox" id="reimbursed" name="reimbursed" />
+    </div>
+    <div>
+      <label>Reimbursement Amount</label>
+      <input type="number" id="reimbursement_amount" name="reimbursement_amount" step="0.01" placeholder="0.00" />
+    </div>
+    <div>
+      <label>Reimbursement Date</label>
+      <input type="date" id="reimbursement_date" name="reimbursement_date" />
+    </div>
+    <div>
+      <label>Claim Number</label>
+      <input type="text" id="claim_number" name="claim_number" placeholder="Claim/Reference #" />
+    </div>
+    <div>
+      <label>Tax Year</label>
+      <input type="number" id="tax_year" name="tax_year" placeholder="2026" min="2020" max="2030" />
+    </div>
+    <div>
+      <label>HSA Eligible</label>
+      <input type="checkbox" id="hsa_eligible" name="hsa_eligible" checked />
+    </div>
+    <div style="grid-column: 1 / -1;">
+      <label>Notes</label>
+      <input type="text" id="notes" name="notes" placeholder="Additional details..." />
+    </div>
+    <button type="submit">Upload Receipt</button>
+  </form>
+</section>
+
+<section>
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+    <div style="display: flex; gap: 12px; align-items: center;">
+      <label for="yearFilter" style="font-weight: 600;">Filter by Year:</label>
+      <select id="yearFilter" onchange="filterByYear()" style="padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem;">
+        <option value="all">All Years</option>
+      </select>
+      <span id="filterStats" style="color: #6b7280; font-size: 0.9rem;"></span>
+    </div>
+  </div>
+  <table id="receiptsTable">
+    <thead>
+      <tr>
+        <th onclick="sortTable(0)" style="cursor: pointer; user-select: none;">Service Date <span id="sort-0">⇅</span></th>
+        <th onclick="sortTable(1)" style="cursor: pointer; user-select: none;">Provider <span id="sort-1">⇅</span></th>
+        <th onclick="sortTable(2)" style="cursor: pointer; user-select: none;">Patient <span id="sort-2">⇅</span></th>
+        <th onclick="sortTable(3)" style="cursor: pointer; user-select: none;">Category <span id="sort-3">⇅</span></th>
+        <th onclick="sortTable(4)" style="cursor: pointer; user-select: none;">Amount <span id="sort-4">⇅</span></th>
+        <th onclick="sortTable(5)" style="cursor: pointer; user-select: none;">Payment <span id="sort-5">⇅</span></th>
+        <th onclick="sortTable(6)" style="cursor: pointer; user-select: none;">Paid <span id="sort-6">⇅</span></th>
+        <th onclick="sortTable(7)" style="cursor: pointer; user-select: none;">Submitted <span id="sort-7">⇅</span></th>
+        <th onclick="sortTable(8)" style="cursor: pointer; user-select: none;">Status <span id="sort-8">⇅</span></th>
+        <th onclick="sortTable(9)" style="cursor: pointer; user-select: none;">Reimb. Amt <span id="sort-9">⇅</span></th>
+        <th onclick="sortTable(10)" style="cursor: pointer; user-select: none;">Reimb. Date <span id="sort-10">⇅</span></th>
+        <th onclick="sortTable(11)" style="cursor: pointer; user-select: none;">Claim # <span id="sort-11">⇅</span></th>
+        <th onclick="sortTable(12)" style="cursor: pointer; user-select: none;">Tax Year <span id="sort-12">⇅</span></th>
+        <th onclick="sortTable(13)" style="cursor: pointer; user-select: none;">Eligible <span id="sort-13">⇅</span></th>
+        <th>Receipt</th>
+        <th>Notes</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for r in receipts %}
+      <tr data-id="{{ r.id }}">
+        <td>{{ r.service_date.strftime('%m/%d/%Y') if r.service_date else '' }}</td>
+        <td><strong>{{ r.provider }}</strong></td>
+        <td>{{ r.patient_name if r.patient_name else '-' }}</td>
+        <td>{{ r.category if r.category else '-' }}</td>
+        <td style="font-weight: 600; color: #059669;">{{ '$%.2f'|format(r.amount) if r.amount else '-' }}</td>
+        <td>{{ r.payment_method if r.payment_method else '-' }}</td>
+        <td>{{ r.paid_date.strftime('%m/%d/%Y') if r.paid_date else '-' }}</td>
+        <td>{{ r.submitted_date.strftime('%m/%d/%Y') if r.submitted_date else '-' }}</td>
+        <td>
+          {% if r.reimbursed %}
+            <span style="background: #d1fae5; color: #065f46; padding: 4px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600;">✓ Yes</span>
+          {% else %}
+            <span style="background: #fee2e2; color: #991b1b; padding: 4px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600;">✗ No</span>
+          {% endif %}
+        </td>
+        <td style="font-weight: 600; color: #7c3aed;">{{ '$%.2f'|format(r.reimbursement_amount) if r.reimbursement_amount else '-' }}</td>
+        <td>{{ r.reimbursement_date.strftime('%m/%d/%Y') if r.reimbursement_date else '-' }}</td>
+        <td>{{ r.claim_number if r.claim_number else '-' }}</td>
+        <td>{{ r.tax_year if r.tax_year else '-' }}</td>
+        <td>
+          {% if r.hsa_eligible %}
+            <span style="color: #059669;">✓</span>
+          {% else %}
+            <span style="color: #dc2626;">✗</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if r.files %}
+            {% for f in r.files %}
+              <div style="display: inline-flex; align-items: center; margin: 2px; padding: 4px 8px; background: #dbeafe; border-radius: 4px;">
+                <a href="/receipts/files/{{ f.id }}" target="_blank" style="color: #1e40af; text-decoration: none; font-size: 0.85rem;">📎 {{ f.original_name }}</a>
+                <button onclick="deleteFile({{ f.id }}, {{ r.id }})" style="background: none; border: none; color: #dc2626; cursor: pointer; margin-left: 8px; padding: 0; font-size: 1rem;" title="Delete file">✕</button>
+              </div>
+            {% endfor %}
+          {% else %}
+            <span style="color: #9ca3af;">No files</span>
+          {% endif %}
+        </td>
+        <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ r.notes if r.notes else '-' }}</td>
+        <td>
+          <button onclick='editReceipt({{ r.id }}, {
+            "service_date": "{{ r.service_date }}",
+            "provider": "{{ r.provider }}",
+            "patient_name": "{{ r.patient_name if r.patient_name else '' }}",
+            "category": "{{ r.category if r.category else '' }}",
+            "amount": {{ r.amount if r.amount else 0 }},
+            "payment_method": "{{ r.payment_method if r.payment_method else '' }}",
+            "paid_date": "{{ r.paid_date if r.paid_date else '' }}",
+            "submitted_date": "{{ r.submitted_date if r.submitted_date else '' }}",
+            "reimbursed": {{ 'true' if r.reimbursed else 'false' }},
+            "reimbursement_amount": {{ r.reimbursement_amount if r.reimbursement_amount else 'null' }},
+            "reimbursement_date": "{{ r.reimbursement_date if r.reimbursement_date else '' }}",
+            "claim_number": "{{ r.claim_number if r.claim_number else '' }}",
+            "tax_year": {{ r.tax_year if r.tax_year else 'null' }},
+            "hsa_eligible": {{ 'true' if r.hsa_eligible else 'false' }},
+            "notes": "{{ r.notes if r.notes else '' }}"
+          })' style="background: #f59e0b; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; margin-right: 6px;">Edit</button>
+          <button onclick="addFilesToReceipt({{ r.id }}, '{{ r.claim_number if r.claim_number else '' }}')" style="background: #10b981; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; margin-right: 6px;">+ Files</button>
+          <button onclick="deleteReceipt({{ r.id }})" style="background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">Delete</button>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<!-- Edit Modal -->
+<div id="editModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; overflow: auto;">
+  <div style="background: white; margin: 40px auto; padding: 30px; max-width: 800px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+      <h3 style="margin: 0;">Edit Receipt</h3>
+      <button onclick="closeEditModal()" style="background: #ef4444; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">Close</button>
+    </div>
+    <form id="editForm" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px;">
+      <div>
+        <label style="display: block; font-weight: 600; margin-bottom: 6px; color: #374151;">Service Date</label>
+        <input type="date" id="edit_service_date" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;" required />
+      </div>
+      <div>
+        <label style="display: block; font-weight: 600; margin-bottom: 6px; color: #374151;">Provider</label>
+        <input type="text" id="edit_provider" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;" required />
+      </div>
+      <div>
+        <label style="display: block; font-weight: 600; margin-bottom: 6px; color: #374151;">Patient Name</label>
+        <input type="text" id="edit_patient_name" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;" />
+      </div>
+      <div>
+        <label style="display: block; font-weight: 600; margin-bottom: 6px; color: #374151;">Category</label>
+        <input type="text" id="edit_category" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;" />
+      </div>
+      <div>
+        <label style="display: block; font-weight: 600; margin-bottom: 6px; color: #374151;">Amount</label>
+        <input type="number" id="edit_amount" step="0.01" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;" />
+      </div>
+      <div>
+        <label style="display: block; font-weight: 600; margin-bottom: 6px; color: #374151;">Payment Method</label>
+        <input type="text" id="edit_payment_method" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;" />
+      </div>
+      <div>
+        <label style="display: block; font-weight: 600; margin-bottom: 6px; color: #374151;">Paid Date</label>
+        <input type="date" id="edit_paid_date" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;" />
+      </div>
+      <div>
+        <label style="display: block; font-weight: 600; margin-bottom: 6px; color: #374151;">Submitted Date</label>
+        <input type="date" id="edit_submitted_date" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;" />
+      </div>
+      <div>
+        <label style="display: block; font-weight: 600; margin-bottom: 6px; color: #374151;">Reimbursed</label>
+        <input type="checkbox" id="edit_reimbursed" style="width: 20px; height: 20px; margin-top: 10px;" />
+      </div>
+      <div>
+        <label style="display: block; font-weight: 600; margin-bottom: 6px; color: #374151;">Reimbursement Amount</label>
+        <input type="number" id="edit_reimbursement_amount" step="0.01" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;" />
+      </div>
+      <div>
+        <label style="display: block; font-weight: 600; margin-bottom: 6px; color: #374151;">Reimbursement Date</label>
+        <input type="date" id="edit_reimbursement_date" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;" />
+      </div>
+      <div>
+        <label style="display: block; font-weight: 600; margin-bottom: 6px; color: #374151;">Claim Number</label>
+        <input type="text" id="edit_claim_number" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;" />
+      </div>
+      <div>
+        <label style="display: block; font-weight: 600; margin-bottom: 6px; color: #374151;">Tax Year</label>
+        <input type="number" id="edit_tax_year" min="2020" max="2030" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;" />
+      </div>
+      <div>
+        <label style="display: block; font-weight: 600; margin-bottom: 6px; color: #374151;">HSA Eligible</label>
+        <input type="checkbox" id="edit_hsa_eligible" style="width: 20px; height: 20px; margin-top: 10px;" />
+      </div>
+      <div style="grid-column: 1 / -1;">
+        <label style="display: block; font-weight: 600; margin-bottom: 6px; color: #374151;">Notes</label>
+        <textarea id="edit_notes" rows="3" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;"></textarea>
+      </div>
+      <div style="grid-column: 1 / -1; display: flex; gap: 12px; justify-content: flex-end;">
+        <button type="button" onclick="closeEditModal()" style="background: #6b7280; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: 600;">Cancel</button>
+        <button type="submit" style="background: #10b981; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: 600;">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Add Files Modal -->
+<div id="addFilesModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; overflow: auto;">
+  <div style="background: white; margin: 80px auto; padding: 30px; max-width: 600px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+      <h3 style="margin: 0;">Add Files to Claim <span id="addFilesClaimNumber" style="color: #6b7280;"></span></h3>
+      <button onclick="closeAddFilesModal()" style="background: #ef4444; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">Close</button>
+    </div>
+    <form id="addFilesForm" enctype="multipart/form-data">
+      <div style="margin-bottom: 20px;">
+        <label style="display: block; font-weight: 600; margin-bottom: 6px;">Select Additional Files</label>
+        <input type="file" id="addFilesInput" multiple required accept=".pdf,.jpg,.jpeg,.png" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;" />
+        <div id="addFilesList" style="margin-top: 8px; font-size: 0.9rem; color: #6b7280;"></div>
+      </div>
+      <div style="display: flex; gap: 12px; justify-content: flex-end;">
+        <button type="button" onclick="closeAddFilesModal()" style="background: #6b7280; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: 600;">Cancel</button>
+        <button type="submit" style="background: #10b981; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: 600;">Upload Files</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+let currentEditId = null;
+let currentAddFilesId = null;
+
+function editReceipt(id, receipt) {
+  currentEditId = id;
+  
+  // Populate form
+  document.getElementById('edit_service_date').value = receipt.service_date || '';
+  document.getElementById('edit_provider').value = receipt.provider || '';
+  document.getElementById('edit_patient_name').value = receipt.patient_name || '';
+  document.getElementById('edit_category').value = receipt.category || '';
+  document.getElementById('edit_amount').value = receipt.amount || '';
+  document.getElementById('edit_payment_method').value = receipt.payment_method || '';
+  document.getElementById('edit_paid_date').value = receipt.paid_date || '';
+  document.getElementById('edit_submitted_date').value = receipt.submitted_date || '';
+  document.getElementById('edit_reimbursed').checked = receipt.reimbursed || false;
+  document.getElementById('edit_reimbursement_amount').value = receipt.reimbursement_amount || '';
+  document.getElementById('edit_reimbursement_date').value = receipt.reimbursement_date || '';
+  document.getElementById('edit_claim_number').value = receipt.claim_number || '';
+  document.getElementById('edit_tax_year').value = receipt.tax_year || '';
+  document.getElementById('edit_hsa_eligible').checked = receipt.hsa_eligible || false;
+  document.getElementById('edit_notes').value = receipt.notes || '';
+  
+  // Show modal
+  document.getElementById('editModal').style.display = 'block';
+}
+
+function closeEditModal() {
+  document.getElementById('editModal').style.display = 'none';
+  currentEditId = null;
+}
+
+// Handle form submission
+document.getElementById('editForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  
+  const formData = new FormData();
+  formData.append('service_date', document.getElementById('edit_service_date').value);
+  formData.append('provider', document.getElementById('edit_provider').value);
+  formData.append('patient_name', document.getElementById('edit_patient_name').value);
+  formData.append('category', document.getElementById('edit_category').value);
+  formData.append('amount', document.getElementById('edit_amount').value);
+  formData.append('payment_method', document.getElementById('edit_payment_method').value);
+  formData.append('paid_date', document.getElementById('edit_paid_date').value);
+  formData.append('submitted_date', document.getElementById('edit_submitted_date').value);
+  formData.append('reimbursed', document.getElementById('edit_reimbursed').checked);
+  formData.append('reimbursement_amount', document.getElementById('edit_reimbursement_amount').value);
+  formData.append('reimbursement_date', document.getElementById('edit_reimbursement_date').value);
+  formData.append('claim_number', document.getElementById('edit_claim_number').value);
+  formData.append('tax_year', document.getElementById('edit_tax_year').value);
+  formData.append('hsa_eligible', document.getElementById('edit_hsa_eligible').checked);
+  formData.append('notes', document.getElementById('edit_notes').value);
+  
+  fetch(`/receipts/${currentEditId}`, {
+    method: 'PUT',
+    body: formData
+  })
+  .then(response => response.json())
+  .then(data => {
+    closeEditModal();
+    location.reload();
+  })
+  .catch(error => {
+    alert('Update failed: ' + error.message);
+  });
+});
+
+// Close modal when clicking outside
+document.getElementById('editModal').addEventListener('click', function(e) {
+  if (e.target.id === 'editModal') {
+    closeEditModal();
+  }
+});
+
+// Show selected files
+document.getElementById('fileInput').addEventListener('change', function(e) {
+  const fileList = document.getElementById('fileList');
+  const files = Array.from(e.target.files);
+  
+  if (files.length === 0) {
+    fileList.innerHTML = '';
+  } else if (files.length === 1) {
+    fileList.innerHTML = `<span style="color: #059669;">✓ 1 file selected: ${files[0].name}</span>`;
+  } else {
+    fileList.innerHTML = `<span style="color: #059669;">✓ ${files.length} files selected (will be auto-merged into one PDF)</span>`;
+  }
+});
+
+// Show selected files for add-files modal
+document.getElementById('addFilesInput').addEventListener('change', function(e) {
+  const fileList = document.getElementById('addFilesList');
+  const files = Array.from(e.target.files);
+  
+  if (files.length === 0) {
+    fileList.innerHTML = '';
+  } else if (files.length === 1) {
+    fileList.innerHTML = `<span style="color: #059669;">✓ 1 file selected: ${files[0].name}</span>`;
+  } else {
+    fileList.innerHTML = `<span style="color: #059669;">✓ ${files.length} files selected</span>`;
+  }
+});
+
+// Add files to existing receipt
+function addFilesToReceipt(id, claimNumber) {
+  currentAddFilesId = id;
+  document.getElementById('addFilesClaimNumber').textContent = claimNumber ? `(${claimNumber})` : '';
+  document.getElementById('addFilesModal').style.display = 'block';
+  document.getElementById('addFilesInput').value = '';
+  document.getElementById('addFilesList').innerHTML = '';
+}
+
+function closeAddFilesModal() {
+  document.getElementById('addFilesModal').style.display = 'none';
+  currentAddFilesId = null;
+}
+
+// Handle add files form submission
+document.getElementById('addFilesForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  
+  const formData = new FormData();
+  const filesInput = document.getElementById('addFilesInput');
+  
+  for (let file of filesInput.files) {
+    formData.append('files', file);
+  }
+  
+  fetch(`/receipts/${currentAddFilesId}/add-files`, {
+    method: 'POST',
+    body: formData
+  })
+  .then(response => response.json())
+  .then(data => {
+    closeAddFilesModal();
+    alert(data.message || 'Files added successfully');
+    location.reload();
+  })
+  .catch(error => {
+    alert('Failed to add files: ' + error.message);
+  });
+});
+
+// Delete receipt
+function deleteReceipt(id) {
+  if (!confirm('Are you sure you want to delete this receipt? This cannot be undone.')) {
+    return;
+  }
+  
+  fetch(`/receipts/${id}`, {
+    method: 'DELETE'
+  })
+  .then(response => response.json())
+  .then(data => {
+    alert(data.message || 'Receipt deleted');
+    location.reload();
+  })
+  .catch(error => {
+    alert('Delete failed: ' + error.message);
+  });
+}
+
+function deleteFile(fileId, receiptId) {
+  if (!confirm('Delete this file? The receipt will remain.')) {
+    return;
+  }
+  
+  fetch(`/receipts/files/${fileId}`, {
+    method: 'DELETE'
+  })
+  .then(response => {
+    if (!response.ok) {
+      return response.json().then(data => {
+        throw new Error(data.detail || 'Failed to delete file');
+      });
+    }
+    return response.json();
+  })
+  .then(data => {
+    location.reload();
+  })
+  .catch(error => {
+    alert(error.message);
+  });
+}
+
+// Close modal when clicking outside
+document.getElementById('addFilesModal').addEventListener('click', function(e) {
+  if (e.target.id === 'addFilesModal') {
+    closeAddFilesModal();
+  }
+});
+
+// Table sorting functionality
+let sortDirections = {}; // Track sort direction for each column
+
+function sortTable(columnIndex) {
+  const table = document.getElementById('receiptsTable');
+  const tbody = table.querySelector('tbody');
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+  
+  // Toggle sort direction
+  const currentDir = sortDirections[columnIndex] || 'asc';
+  const newDir = currentDir === 'asc' ? 'desc' : 'asc';
+  sortDirections[columnIndex] = newDir;
+  
+  // Update all sort indicators
+  for (let i = 0; i <= 13; i++) {
+    const indicator = document.getElementById(`sort-${i}`);
+    if (indicator) {
+      indicator.textContent = i === columnIndex ? (newDir === 'asc' ? '▲' : '▼') : '⇅';
+    }
+  }
+  
+  // Sort rows
+  rows.sort((a, b) => {
+    const cellA = a.cells[columnIndex]?.textContent.trim() || '';
+    const cellB = b.cells[columnIndex]?.textContent.trim() || '';
+    
+    // Handle dates (MM/DD/YYYY format)
+    if (cellA.match(/^\d{2}\/\d{2}\/\d{4}$/) && cellB.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+      const dateA = new Date(cellA);
+      const dateB = new Date(cellB);
+      return newDir === 'asc' ? dateA - dateB : dateB - dateA;
+    }
+    
+    // Handle amounts (starts with $)
+    if (cellA.startsWith('$') && cellB.startsWith('$')) {
+      const numA = parseFloat(cellA.replace(/[$,]/g, '')) || 0;
+      const numB = parseFloat(cellB.replace(/[$,]/g, '')) || 0;
+      return newDir === 'asc' ? numA - numB : numB - numA;
+    }
+    
+    // Handle numbers
+    const numA = parseFloat(cellA);
+    const numB = parseFloat(cellB);
+    if (!isNaN(numA) && !isNaN(numB)) {
+      return newDir === 'asc' ? numA - numB : numB - numA;
+    }
+    
+    // Handle text (case-insensitive)
+    return newDir === 'asc' 
+      ? cellA.localeCompare(cellB, undefined, { sensitivity: 'base' })
+      : cellB.localeCompare(cellA, undefined, { sensitivity: 'base' });
+  });
+  
+  // Re-append sorted rows
+  rows.forEach(row => tbody.appendChild(row));
+}
+
+// Year filter functionality
+function populateYearFilter() {
+  const table = document.getElementById('receiptsTable');
+  const tbody = table.querySelector('tbody');
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+  
+  // Extract unique years from service dates (column 0)
+  const years = new Set();
+  rows.forEach(row => {
+    const dateText = row.cells[0]?.textContent.trim();
+    if (dateText && dateText.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+      const year = dateText.split('/')[2]; // Extract year from MM/DD/YYYY
+      years.add(year);
+    }
+  });
+  
+  // Sort years in descending order
+  const sortedYears = Array.from(years).sort((a, b) => b - a);
+  
+  // Populate dropdown
+  const select = document.getElementById('yearFilter');
+  sortedYears.forEach(year => {
+    const option = document.createElement('option');
+    option.value = year;
+    option.textContent = year;
+    select.appendChild(option);
+  });
+  
+  updateFilterStats();
+}
+
+function filterByYear() {
+  const selectedYear = document.getElementById('yearFilter').value;
+  const table = document.getElementById('receiptsTable');
+  const tbody = table.querySelector('tbody');
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+  
+  let visibleCount = 0;
+  
+  rows.forEach(row => {
+    const dateText = row.cells[0]?.textContent.trim();
+    
+    if (selectedYear === 'all') {
+      row.style.display = '';
+      visibleCount++;
+    } else if (dateText && dateText.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+      const year = dateText.split('/')[2];
+      if (year === selectedYear) {
+        row.style.display = '';
+        visibleCount++;
+      } else {
+        row.style.display = 'none';
+      }
+    } else {
+      row.style.display = 'none';
+    }
+  });
+  
+  updateFilterStats(visibleCount, rows.length);
+}
+
+function updateFilterStats(visible, total) {
+  const statsEl = document.getElementById('filterStats');
+  const selectedYear = document.getElementById('yearFilter').value;
+  
+  if (!visible || !total) {
+    const table = document.getElementById('receiptsTable');
+    const tbody = table.querySelector('tbody');
+    total = tbody.querySelectorAll('tr').length;
+    visible = total;
+  }
+  
+  if (selectedYear === 'all') {
+    statsEl.textContent = `Showing all ${total} receipts`;
+  } else {
+    statsEl.textContent = `Showing ${visible} of ${total} receipts`;
+  }
+}
+
+// Initialize year filter on page load
+window.addEventListener('DOMContentLoaded', () => {
+  populateYearFilter();
+});
+</script>
+{% endblock %}
