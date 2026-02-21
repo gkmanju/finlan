@@ -20,3 +20,4 @@ selenium
 webdriver-manager
 cryptography
 plaid-python
+openpyxl

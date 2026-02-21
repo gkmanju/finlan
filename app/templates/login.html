@@ -5,6 +5,7 @@
   {% if error %}
     <p style="color:red">{{ error }}</p>
   {% endif %}
+  <input type="hidden" name="next" value="{{ next_url | default('/') }}" />
   <div>
     <label>Username</label>
     <input type="text" name="username" required />

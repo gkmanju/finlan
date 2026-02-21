@@ -1,0 +1,311 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+  .mort-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
+  @media(max-width:700px){ .mort-grid{ grid-template-columns:1fr; } }
+
+  .mort-card { background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:1.25rem 1.5rem; }
+  .mort-card h3 { font-size:1rem; color:#64748b; margin-bottom:0.25rem; }
+  .mort-card .val { font-size:1.5rem; font-weight:700; color:#1e3a8a; }
+  .mort-card .sub { font-size:0.8rem; color:#94a3b8; margin-top:0.15rem; }
+
+  .section-header { display:flex; justify-content:space-between; align-items:center; margin:1.5rem 0 0.75rem; }
+  .section-header h2 { font-size:1.1rem; font-weight:600; color:#1e293b; }
+
+  .btn { padding:0.4rem 0.9rem; border-radius:6px; border:none; cursor:pointer; font-size:0.85rem; font-weight:500; }
+  .btn-primary { background:#2563eb; color:#fff; }
+  .btn-primary:hover { background:#1d4ed8; }
+  .btn-danger  { background:#ef4444; color:#fff; }
+  .btn-danger:hover  { background:#dc2626; }
+  .btn-outline { background:#fff; color:#2563eb; border:1px solid #2563eb; }
+
+  table { width:100%; border-collapse:collapse; font-size:0.875rem; }
+  th { background:#f1f5f9; padding:0.6rem 0.75rem; text-align:left; color:#475569; font-weight:600; }
+  td { padding:0.6rem 0.75rem; border-bottom:1px solid #f1f5f9; color:#334155; }
+  tr:hover td { background:#f8fafc; }
+
+  .mortgage-section { background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:1.5rem; margin-bottom:2rem; }
+  .mortgage-section > .section-header { margin-top:0; }
+
+  .tag-rate { display:inline-block; background:#dbeafe; color:#1d4ed8; border-radius:999px;
+              padding:0.1rem 0.6rem; font-size:0.78rem; font-weight:600; margin-left:0.5rem; }
+
+  form.upload-form { display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap; }
+
+  details summary { cursor:pointer; color:#2563eb; font-size:0.85rem; margin-top:0.5rem; }
+  details pre { font-size:0.75rem; white-space:pre-wrap; word-break:break-all; background:#f8fafc;
+                border:1px solid #e2e8f0; border-radius:6px; padding:0.75rem; margin-top:0.5rem;
+                max-height:200px; overflow-y:auto; }
+
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:100;
+                   align-items:center; justify-content:center; }
+  .modal-overlay.open { display:flex; }
+  .modal-box { background:#fff; border-radius:12px; padding:2rem; width:100%; max-width:540px;
+               max-height:90vh; overflow-y:auto; }
+  .modal-box h2 { font-size:1.1rem; font-weight:700; margin-bottom:1.25rem; }
+  .form-row { display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-bottom:0.75rem; }
+  .form-row.full { grid-template-columns:1fr; }
+  label { font-size:0.82rem; color:#475569; display:block; margin-bottom:0.2rem; }
+  input, select { width:100%; padding:0.45rem 0.6rem; border:1px solid #cbd5e1; border-radius:6px;
+                  font-size:0.88rem; }
+  input:focus, select:focus { outline:none; border-color:#2563eb; box-shadow:0 0 0 2px #bfdbfe; }
+  .modal-actions { display:flex; justify-content:flex-end; gap:0.75rem; margin-top:1rem; }
+</style>
+
+<div style="max-width:1100px;margin:0 auto;padding:1.5rem 1rem;">
+
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;">
+    <h1 style="font-size:1.5rem;font-weight:700;color:#1e293b;">Mortgage Accounts</h1>
+    <button class="btn btn-primary" onclick="openAddModal()">+ Add Mortgage</button>
+  </div>
+
+  {% if not mortgages %}
+  <div style="text-align:center;padding:3rem;color:#94a3b8;">
+    <p style="font-size:1.1rem;">No mortgage accounts yet.</p>
+    <p style="font-size:0.9rem;margin-top:0.5rem;">Click <strong>+ Add Mortgage</strong> to set up your loan details,
+      then upload monthly statements.</p>
+  </div>
+  {% endif %}
+
+  {% for m in mortgages %}
+  {% set latest = m.statements[0] if m.statements else none %}
+  <div class="mortgage-section">
+
+    <!-- Header row -->
+    <div class="section-header">
+      <div>
+        <span style="font-size:1.15rem;font-weight:700;color:#1e293b;">{{ m.servicer_name }}</span>
+        {% if m.interest_rate %}
+        <span class="tag-rate">{{ "%.3f"|format(m.interest_rate) }}%</span>
+        {% endif %}
+        {% if m.loan_number %}
+        <span style="font-size:0.82rem;color:#94a3b8;margin-left:0.5rem;">Loan #{{ m.loan_number }}</span>
+        {% endif %}
+      </div>
+      <div style="display:flex;gap:0.5rem;">
+        <button class="btn btn-outline" onclick="openEditModal({{ m.id }}, '{{ m.servicer_name }}',
+          '{{ m.loan_number or '' }}', '{{ m.property_address or '' }}',
+          '{{ m.original_balance or '' }}', '{{ m.interest_rate or '' }}',
+          '{{ m.loan_term_months or '' }}', '{{ m.origination_date or '' }}',
+          '{{ m.maturity_date or '' }}', '{{ m.monthly_payment or '' }}')">Edit</button>
+        <form method="post" action="/mortgage/account/{{ m.id }}/delete"
+              onsubmit="return confirm('Delete this mortgage and all its statements?')">
+          <button class="btn btn-danger" type="submit">Delete</button>
+        </form>
+      </div>
+    </div>
+
+    {% if m.property_address %}
+    <p style="font-size:0.85rem;color:#64748b;margin-bottom:1rem;">{{ m.property_address }}</p>
+    {% endif %}
+
+    <!-- Summary cards -->
+    <div class="mort-grid">
+      <div class="mort-card">
+        <h3>Current Principal Balance</h3>
+        <div class="val">
+          {% if latest and latest.unpaid_principal %}
+            ${{ "{:,.2f}".format(latest.unpaid_principal) }}
+          {% elif m.original_balance %}
+            ${{ "{:,.2f}".format(m.original_balance) }}
+          {% else %}—{% endif %}
+        </div>
+        <div class="sub">
+          {% if latest and latest.statement_date %}As of {{ latest.statement_date }}{% endif %}
+        </div>
+      </div>
+      <div class="mort-card">
+        <h3>Monthly Payment</h3>
+        <div class="val">
+          {% if latest and latest.payment_amount %}${{ "{:,.2f}".format(latest.payment_amount) }}
+          {% elif m.monthly_payment %}${{ "{:,.2f}".format(m.monthly_payment) }}
+          {% else %}—{% endif %}
+        </div>
+        <div class="sub">
+          {% if latest and latest.due_date %}Due {{ latest.due_date }}{% endif %}
+        </div>
+      </div>
+      <div class="mort-card">
+        <h3>Escrow Balance</h3>
+        <div class="val">
+          {% if latest and latest.escrow_balance %}${{ "{:,.2f}".format(latest.escrow_balance) }}
+          {% else %}—{% endif %}
+        </div>
+        <div class="sub">From latest statement</div>
+      </div>
+      <div class="mort-card">
+        <h3>YTD Interest Paid</h3>
+        <div class="val">
+          {% if latest and latest.ytd_interest %}${{ "{:,.2f}".format(latest.ytd_interest) }}
+          {% else %}—{% endif %}
+        </div>
+        <div class="sub">
+          {% if latest and latest.ytd_taxes %}
+            + ${{ "{:,.2f}".format(latest.ytd_taxes) }} taxes
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Upload statement -->
+    <div style="margin-bottom:1.25rem;">
+      <strong style="font-size:0.9rem;">Upload Monthly Statement (PDF)</strong>
+      <form class="upload-form" method="post"
+            action="/mortgage/account/{{ m.id }}/upload"
+            enctype="multipart/form-data" style="margin-top:0.5rem;">
+        <input type="file" name="file" accept=".pdf" required style="width:auto;">
+        <button class="btn btn-primary" type="submit">Upload &amp; Parse</button>
+      </form>
+    </div>
+
+    <!-- Statement history -->
+    {% if m.statements %}
+    <div>
+      <strong style="font-size:0.9rem;">Statement History</strong>
+      <div style="overflow-x:auto;margin-top:0.5rem;">
+        <table>
+          <thead>
+            <tr>
+              <th>Statement Date</th>
+              <th>Due Date</th>
+              <th>Principal Balance</th>
+              <th>Payment Due</th>
+              <th>Principal</th>
+              <th>Interest</th>
+              <th>Escrow</th>
+              <th>YTD Interest</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in m.statements %}
+            <tr>
+              <td>{{ s.statement_date or '—' }}</td>
+              <td>{{ s.due_date or '—' }}</td>
+              <td>{% if s.unpaid_principal %}${{ "{:,.2f}".format(s.unpaid_principal) }}{% else %}—{% endif %}</td>
+              <td>{% if s.payment_amount %}${{ "{:,.2f}".format(s.payment_amount) }}{% else %}—{% endif %}</td>
+              <td>{% if s.principal_portion %}${{ "{:,.2f}".format(s.principal_portion) }}{% else %}—{% endif %}</td>
+              <td>{% if s.interest_portion %}${{ "{:,.2f}".format(s.interest_portion) }}{% else %}—{% endif %}</td>
+              <td>{% if s.escrow_portion %}${{ "{:,.2f}".format(s.escrow_portion) }}{% else %}—{% endif %}</td>
+              <td>{% if s.ytd_interest %}${{ "{:,.2f}".format(s.ytd_interest) }}{% else %}—{% endif %}</td>
+              <td>
+                <form method="post" action="/mortgage/statement/{{ s.id }}/delete"
+                      onsubmit="return confirm('Delete this statement?')">
+                  <button class="btn btn-danger" type="submit" style="padding:0.2rem 0.5rem;font-size:0.78rem;">✕</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% else %}
+    <p style="font-size:0.85rem;color:#94a3b8;">No statements uploaded yet.</p>
+    {% endif %}
+
+  </div>
+  {% endfor %}
+
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal-overlay" id="mortgageModal">
+  <div class="modal-box">
+    <h2 id="modalTitle">Add Mortgage Account</h2>
+    <form method="post" id="mortgageForm" action="/mortgage/account">
+      <input type="hidden" name="mortgage_id" id="f_id">
+      <div class="form-row full">
+        <div>
+          <label>Servicer Name *</label>
+          <input type="text" name="servicer_name" id="f_servicer" required placeholder="e.g. RoundPoint">
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label>Loan Number</label>
+          <input type="text" name="loan_number" id="f_loan_number">
+        </div>
+        <div>
+          <label>Interest Rate (%)</label>
+          <input type="number" name="interest_rate" id="f_rate" step="0.001" min="0" max="30">
+        </div>
+      </div>
+      <div class="form-row full">
+        <div>
+          <label>Property Address</label>
+          <input type="text" name="property_address" id="f_address">
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label>Original Balance ($)</label>
+          <input type="number" name="original_balance" id="f_orig_bal" step="0.01" min="0">
+        </div>
+        <div>
+          <label>Monthly Payment ($)</label>
+          <input type="number" name="monthly_payment" id="f_payment" step="0.01" min="0">
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label>Loan Term (months)</label>
+          <input type="number" name="loan_term_months" id="f_term" min="1" max="600" placeholder="360">
+        </div>
+        <div></div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label>Origination Date</label>
+          <input type="date" name="origination_date" id="f_orig_date">
+        </div>
+        <div>
+          <label>Maturity Date</label>
+          <input type="date" name="maturity_date" id="f_mat_date">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" onclick="closeModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openAddModal() {
+  document.getElementById('modalTitle').textContent = 'Add Mortgage Account';
+  document.getElementById('mortgageForm').action = '/mortgage/account';
+  ['f_id','f_servicer','f_loan_number','f_rate','f_address',
+   'f_orig_bal','f_payment','f_term','f_orig_date','f_mat_date']
+    .forEach(id => document.getElementById(id).value = '');
+  document.getElementById('mortgageModal').classList.add('open');
+}
+
+function openEditModal(id, servicer, loan_number, address, orig_bal, rate, term, orig_date, mat_date, payment) {
+  document.getElementById('modalTitle').textContent = 'Edit Mortgage Account';
+  document.getElementById('mortgageForm').action = '/mortgage/account';
+  document.getElementById('f_id').value = id;
+  document.getElementById('f_servicer').value = servicer;
+  document.getElementById('f_loan_number').value = loan_number;
+  document.getElementById('f_address').value = address;
+  document.getElementById('f_orig_bal').value = orig_bal;
+  document.getElementById('f_rate').value = rate;
+  document.getElementById('f_term').value = term;
+  document.getElementById('f_orig_date').value = orig_date;
+  document.getElementById('f_mat_date').value = mat_date;
+  document.getElementById('f_payment').value = payment;
+  document.getElementById('mortgageModal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('mortgageModal').classList.remove('open');
+}
+
+document.getElementById('mortgageModal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+</script>
+
+{% endblock %}

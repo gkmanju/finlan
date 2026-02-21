@@ -1,0 +1,435 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+  <h2 style="margin: 0;">💳 Transactions</h2>
+  <button onclick="document.getElementById('addModal').style.display='flex'"
+    style="background: #3b82f6; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px;">
+    + Add Transaction
+  </button>
+</div>
+
+<!-- Summary Cards -->
+<div id="summaryCards" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;">
+  <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 16px;">
+    <div style="font-size: 12px; color: #16a34a; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Total Income</div>
+    <div id="totalIncome" style="font-size: 24px; font-weight: 700; color: #15803d; margin-top: 4px;">—</div>
+  </div>
+  <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; padding: 16px;">
+    <div style="font-size: 12px; color: #dc2626; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Total Expenses</div>
+    <div id="totalExpenses" style="font-size: 24px; font-weight: 700; color: #b91c1c; margin-top: 4px;">—</div>
+  </div>
+  <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 16px;">
+    <div style="font-size: 12px; color: #2563eb; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Net</div>
+    <div id="netAmount" style="font-size: 24px; font-weight: 700; color: #1d4ed8; margin-top: 4px;">—</div>
+  </div>
+  <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px;">
+    <div style="font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Transactions</div>
+    <div id="txCount" style="font-size: 24px; font-weight: 700; color: #334155; margin-top: 4px;">—</div>
+  </div>
+</div>
+
+<!-- Filters -->
+<div style="background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; margin-bottom: 20px; display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;">
+  <div>
+    <label style="font-size: 12px; color: #64748b; font-weight: 600; display: block; margin-bottom: 4px;">TYPE</label>
+    <select id="filterType" onchange="applyFilters()"
+      style="border: 1px solid #d1d5db; border-radius: 6px; padding: 8px 12px; font-size: 14px; background: white; color: #1e293b;">
+      <option value="all">All</option>
+      <option value="income">Income</option>
+      <option value="expense">Expense</option>
+    </select>
+  </div>
+  <div>
+    <label style="font-size: 12px; color: #64748b; font-weight: 600; display: block; margin-bottom: 4px;">CATEGORY</label>
+    <select id="filterCategory" onchange="applyFilters()"
+      style="border: 1px solid #d1d5db; border-radius: 6px; padding: 8px 12px; font-size: 14px; background: white; color: #1e293b;">
+      <option value="">All Categories</option>
+    </select>
+  </div>
+  <div>
+    <label style="font-size: 12px; color: #64748b; font-weight: 600; display: block; margin-bottom: 4px;">ACCOUNT</label>
+    <select id="filterAccount" onchange="applyFilters()"
+      style="border: 1px solid #d1d5db; border-radius: 6px; padding: 8px 12px; font-size: 14px; background: white; color: #1e293b;">
+      <option value="">All Accounts</option>
+    </select>
+  </div>
+  <div>
+    <label style="font-size: 12px; color: #64748b; font-weight: 600; display: block; margin-bottom: 4px;">FROM</label>
+    <input type="date" id="filterFrom" onchange="applyFilters()"
+      style="border: 1px solid #d1d5db; border-radius: 6px; padding: 8px 12px; font-size: 14px; color: #1e293b;" />
+  </div>
+  <div>
+    <label style="font-size: 12px; color: #64748b; font-weight: 600; display: block; margin-bottom: 4px;">TO</label>
+    <input type="date" id="filterTo" onchange="applyFilters()"
+      style="border: 1px solid #d1d5db; border-radius: 6px; padding: 8px 12px; font-size: 14px; color: #1e293b;" />
+  </div>
+  <div style="flex: 1; min-width: 180px;">
+    <label style="font-size: 12px; color: #64748b; font-weight: 600; display: block; margin-bottom: 4px;">SEARCH</label>
+    <input type="text" id="filterSearch" oninput="applyFilters()" placeholder="Search notes…"
+      style="width: 100%; box-sizing: border-box; border: 1px solid #d1d5db; border-radius: 6px; padding: 8px 12px; font-size: 14px; color: #1e293b;" />
+  </div>
+  <button onclick="clearFilters()"
+    style="background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; align-self: flex-end;">
+    Clear
+  </button>
+</div>
+
+<!-- Transactions Table -->
+<div style="background: white; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden;">
+  <table style="width: 100%; border-collapse: collapse;">
+    <thead>
+      <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+        <th onclick="sortBy('date')" style="padding: 12px 16px; text-align: left; font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; cursor: pointer; user-select: none;">
+          Date <span id="sort_date" style="color: #94a3b8;">↕</span>
+        </th>
+        <th style="padding: 12px 16px; text-align: left; font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;">Type</th>
+        <th onclick="sortBy('amount')" style="padding: 12px 16px; text-align: right; font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; cursor: pointer; user-select: none;">
+          Amount <span id="sort_amount" style="color: #94a3b8;">↕</span>
+        </th>
+        <th style="padding: 12px 16px; text-align: left; font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;">Category</th>
+        <th style="padding: 12px 16px; text-align: left; font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;">Account</th>
+        <th style="padding: 12px 16px; text-align: left; font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;">Notes</th>
+        <th style="padding: 12px 16px; text-align: center; font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;">Actions</th>
+      </tr>
+    </thead>
+    <tbody id="txTableBody">
+      <tr><td colspan="7" style="padding: 40px; text-align: center; color: #94a3b8;">Loading transactions…</td></tr>
+    </tbody>
+  </table>
+  <div id="txPager" style="padding: 12px 16px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #64748b; background: #f8fafc;"></div>
+</div>
+
+<!-- Add Transaction Modal -->
+<div id="addModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:999; align-items:center; justify-content:center;">
+  <div style="background:white; border-radius:12px; padding:28px; width:460px; max-width:95vw; box-shadow:0 20px 60px rgba(0,0,0,.3);">
+    <h3 style="margin:0 0 20px 0; color:#1e293b;">Add Transaction</h3>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+      <div style="grid-column:1/-1;">
+        <label style="font-size:13px;color:#64748b;font-weight:600;display:block;margin-bottom:4px;">AMOUNT</label>
+        <input type="number" id="newAmount" step="0.01" placeholder="0.00"
+          style="width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:6px;padding:10px 12px;font-size:15px;color:#1e293b;" />
+      </div>
+      <div>
+        <label style="font-size:13px;color:#64748b;font-weight:600;display:block;margin-bottom:4px;">DATE</label>
+        <input type="date" id="newDate"
+          style="width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:6px;padding:10px 12px;font-size:14px;color:#1e293b;" />
+      </div>
+      <div>
+        <label style="font-size:13px;color:#64748b;font-weight:600;display:block;margin-bottom:4px;">TYPE</label>
+        <select id="newType"
+          style="width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:6px;padding:10px 12px;font-size:14px;background:white;color:#1e293b;">
+          <option value="false">Expense</option>
+          <option value="true">Income</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:13px;color:#64748b;font-weight:600;display:block;margin-bottom:4px;">ACCOUNT</label>
+        <select id="newAccount"
+          style="width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:6px;padding:10px 12px;font-size:14px;background:white;color:#1e293b;">
+          <option value="">Select…</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:13px;color:#64748b;font-weight:600;display:block;margin-bottom:4px;">CATEGORY</label>
+        <select id="newCategory"
+          style="width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:6px;padding:10px 12px;font-size:14px;background:white;color:#1e293b;">
+          <option value="">Select…</option>
+        </select>
+      </div>
+      <div style="grid-column:1/-1;">
+        <label style="font-size:13px;color:#64748b;font-weight:600;display:block;margin-bottom:4px;">NOTES</label>
+        <input type="text" id="newNotes" placeholder="Optional description"
+          style="width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:6px;padding:10px 12px;font-size:14px;color:#1e293b;" />
+      </div>
+    </div>
+    <div id="addError" style="color:#dc2626;font-size:13px;margin-top:10px;display:none;"></div>
+    <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end;">
+      <button onclick="closeAddModal()"
+        style="background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;padding:10px 20px;border-radius:8px;cursor:pointer;font-size:14px;">Cancel</button>
+      <button onclick="submitTransaction()"
+        style="background:#3b82f6;color:white;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-weight:600;font-size:14px;">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirm Modal -->
+<div id="deleteModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:999; align-items:center; justify-content:center;">
+  <div style="background:white; border-radius:12px; padding:28px; width:380px; max-width:95vw; box-shadow:0 20px 60px rgba(0,0,0,.3);">
+    <h3 style="margin:0 0 12px 0; color:#1e293b;">Delete Transaction?</h3>
+    <p style="color:#64748b;font-size:14px;margin:0 0 20px 0;">This action cannot be undone.</p>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button onclick="document.getElementById('deleteModal').style.display='none'"
+        style="background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;padding:10px 20px;border-radius:8px;cursor:pointer;font-size:14px;">Cancel</button>
+      <button id="confirmDeleteBtn"
+        style="background:#ef4444;color:white;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-weight:600;font-size:14px;">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let allTransactions = [];
+let accounts = {};
+let categories = {};
+let sortField = 'date';
+let sortDir = -1; // -1 = desc, 1 = asc
+let page = 1;
+const PAGE_SIZE = 50;
+
+async function init() {
+  const [txRes, accRes, catRes] = await Promise.all([
+    fetch('/transactions/'),
+    fetch('/accounts/'),
+    fetch('/categories/')
+  ]);
+  allTransactions = await txRes.json();
+  const accList = await accRes.json();
+  const catList = await catRes.json();
+
+  // Build lookup maps
+  accList.forEach(a => { accounts[a.id] = a; });
+  catList.forEach(c => { categories[c.id] = c; });
+
+  // Populate filter dropdowns
+  const catSel = document.getElementById('filterCategory');
+  const accSel = document.getElementById('filterAccount');
+  catList.forEach(c => { catSel.innerHTML += `<option value="${c.id}">${c.name}</option>`; });
+  accList.forEach(a => { accSel.innerHTML += `<option value="${a.id}">${a.name}</option>`; });
+
+  // Populate add modal dropdowns
+  const newAcc = document.getElementById('newAccount');
+  const newCat = document.getElementById('newCategory');
+  accList.forEach(a => { newAcc.innerHTML += `<option value="${a.id}">${a.name}</option>`; });
+  catList.forEach(c => { newCat.innerHTML += `<option value="${c.id}">${c.name}</option>`; });
+
+  // Default date to today
+  document.getElementById('newDate').value = new Date().toISOString().split('T')[0];
+
+  applyFilters();
+}
+
+function applyFilters() {
+  const type = document.getElementById('filterType').value;
+  const catId = document.getElementById('filterCategory').value;
+  const accId = document.getElementById('filterAccount').value;
+  const from = document.getElementById('filterFrom').value;
+  const to = document.getElementById('filterTo').value;
+  const search = document.getElementById('filterSearch').value.toLowerCase();
+
+  let filtered = allTransactions.filter(t => {
+    if (type === 'income' && !t.is_income) return false;
+    if (type === 'expense' && t.is_income) return false;
+    if (catId && t.category_id != catId) return false;
+    if (accId && t.account_id != accId) return false;
+    if (from && t.date < from) return false;
+    if (to && t.date > to) return false;
+    if (search && !(t.notes || '').toLowerCase().includes(search)) return false;
+    return true;
+  });
+
+  // Sort
+  filtered.sort((a, b) => {
+    let av = a[sortField], bv = b[sortField];
+    if (typeof av === 'string') av = av.toLowerCase(), bv = bv.toLowerCase();
+    return (av < bv ? -1 : av > bv ? 1 : 0) * sortDir;
+  });
+
+  // Summary
+  let totalIncome = 0, totalExpenses = 0;
+  filtered.forEach(t => { t.is_income ? totalIncome += t.amount : totalExpenses += t.amount; });
+  const net = totalIncome - totalExpenses;
+
+  document.getElementById('totalIncome').textContent = '$' + totalIncome.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  document.getElementById('totalExpenses').textContent = '$' + totalExpenses.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  const netEl = document.getElementById('netAmount');
+  netEl.textContent = (net >= 0 ? '+' : '') + '$' + Math.abs(net).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  netEl.style.color = net >= 0 ? '#15803d' : '#b91c1c';
+  document.getElementById('txCount').textContent = filtered.length;
+
+  page = 1;
+  renderTable(filtered);
+}
+
+function renderTable(rows) {
+  const tbody = document.getElementById('txTableBody');
+  const pager = document.getElementById('txPager');
+  const total = rows.length;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const start = (page - 1) * PAGE_SIZE;
+  const slice = rows.slice(start, start + PAGE_SIZE);
+
+  if (!slice.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="padding: 40px; text-align: center; color: #94a3b8;">No transactions found.</td></tr>';
+    pager.textContent = '';
+    return;
+  }
+
+  tbody.innerHTML = slice.map(t => {
+    const cat = categories[t.category_id];
+    const acc = accounts[t.account_id];
+    const amtColor = t.is_income ? '#15803d' : '#b91c1c';
+    const amtSign = t.is_income ? '+' : '-';
+    const typeBadge = t.is_income
+      ? `<span style="background:#dcfce7;color:#16a34a;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;">INCOME</span>`
+      : `<span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;">EXPENSE</span>`;
+    return `<tr style="border-bottom: 1px solid #f1f5f9;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''"  >
+      <td style="padding: 12px 16px; font-size: 14px; color: #334155; white-space: nowrap;">${t.date}</td>
+      <td style="padding: 12px 16px;">${typeBadge}</td>
+      <td style="padding: 12px 16px; text-align: right; font-size: 14px; font-weight: 700; color: ${amtColor}; white-space: nowrap;">${amtSign}$${Math.abs(t.amount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+      <td style="padding: 12px 16px; font-size: 13px; color: #475569;">${cat ? cat.name : t.category_id}</td>
+      <td style="padding: 12px 16px; font-size: 13px; color: #475569;">${acc ? acc.name : t.account_id}</td>
+      <td style="padding: 12px 16px; font-size: 13px; color: #64748b; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${(t.notes || '').replace(/"/g,'&quot;')}">${t.notes || '—'}</td>
+      <td style="padding: 12px 16px; text-align: center;">
+        <button onclick="confirmDelete(${t.id})" style="background:#fef2f2;color:#ef4444;border:1px solid #fecaca;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px;">Delete</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  // Pagination controls
+  const showingStart = start + 1;
+  const showingEnd = Math.min(start + PAGE_SIZE, total);
+  pager.innerHTML = `
+    <span>Showing ${showingStart}–${showingEnd} of ${total}</span>
+    <div style="display:flex;gap:8px;">
+      <button onclick="changePage(-1)" ${page===1?'disabled':''} style="background:${page===1?'#f1f5f9':'white'};color:${page===1?'#94a3b8':'#334155'};border:1px solid #e2e8f0;padding:4px 12px;border-radius:6px;cursor:${page===1?'default':'pointer'};font-size:13px;">← Prev</button>
+      <span style="padding:4px 8px;font-weight:600;">${page} / ${totalPages}</span>
+      <button onclick="changePage(1)" ${page===totalPages?'disabled':''} style="background:${page===totalPages?'#f1f5f9':'white'};color:${page===totalPages?'#94a3b8':'#334155'};border:1px solid #e2e8f0;padding:4px 12px;border-radius:6px;cursor:${page===totalPages?'default':'pointer'};font-size:13px;">Next →</button>
+    </div>`;
+}
+
+// Store filtered rows for pagination
+let _lastFiltered = [];
+const _origApply = applyFilters;
+// Override to cache filtered rows for pagination
+function applyFilters() {
+  const type = document.getElementById('filterType').value;
+  const catId = document.getElementById('filterCategory').value;
+  const accId = document.getElementById('filterAccount').value;
+  const from = document.getElementById('filterFrom').value;
+  const to = document.getElementById('filterTo').value;
+  const search = document.getElementById('filterSearch').value.toLowerCase();
+
+  _lastFiltered = allTransactions.filter(t => {
+    if (type === 'income' && !t.is_income) return false;
+    if (type === 'expense' && t.is_income) return false;
+    if (catId && t.category_id != catId) return false;
+    if (accId && t.account_id != accId) return false;
+    if (from && t.date < from) return false;
+    if (to && t.date > to) return false;
+    if (search && !(t.notes || '').toLowerCase().includes(search)) return false;
+    return true;
+  });
+
+  _lastFiltered.sort((a, b) => {
+    let av = a[sortField], bv = b[sortField];
+    if (typeof av === 'string') av = av.toLowerCase(), bv = bv.toLowerCase();
+    return (av < bv ? -1 : av > bv ? 1 : 0) * sortDir;
+  });
+
+  let totalIncome = 0, totalExpenses = 0;
+  _lastFiltered.forEach(t => { t.is_income ? totalIncome += t.amount : totalExpenses += t.amount; });
+  const net = totalIncome - totalExpenses;
+
+  document.getElementById('totalIncome').textContent = '$' + totalIncome.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  document.getElementById('totalExpenses').textContent = '$' + totalExpenses.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  const netEl = document.getElementById('netAmount');
+  netEl.textContent = (net >= 0 ? '+' : '') + '$' + Math.abs(net).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  netEl.style.color = net >= 0 ? '#15803d' : '#b91c1c';
+  document.getElementById('txCount').textContent = _lastFiltered.length;
+
+  page = 1;
+  renderTable(_lastFiltered);
+}
+
+function changePage(delta) {
+  const totalPages = Math.max(1, Math.ceil(_lastFiltered.length / PAGE_SIZE));
+  page = Math.max(1, Math.min(totalPages, page + delta));
+  renderTable(_lastFiltered);
+}
+
+function sortBy(field) {
+  if (sortField === field) {
+    sortDir *= -1;
+  } else {
+    sortField = field;
+    sortDir = -1;
+  }
+  ['date', 'amount'].forEach(f => {
+    document.getElementById('sort_' + f).textContent = f === sortField ? (sortDir === -1 ? '↓' : '↑') : '↕';
+  });
+  applyFilters();
+}
+
+function clearFilters() {
+  document.getElementById('filterType').value = 'all';
+  document.getElementById('filterCategory').value = '';
+  document.getElementById('filterAccount').value = '';
+  document.getElementById('filterFrom').value = '';
+  document.getElementById('filterTo').value = '';
+  document.getElementById('filterSearch').value = '';
+  applyFilters();
+}
+
+function closeAddModal() {
+  document.getElementById('addModal').style.display = 'none';
+  document.getElementById('addError').style.display = 'none';
+}
+
+async function submitTransaction() {
+  const amount = parseFloat(document.getElementById('newAmount').value);
+  const date = document.getElementById('newDate').value;
+  const is_income = document.getElementById('newType').value === 'true';
+  const account_id = parseInt(document.getElementById('newAccount').value);
+  const category_id = parseInt(document.getElementById('newCategory').value);
+  const notes = document.getElementById('newNotes').value;
+
+  const errEl = document.getElementById('addError');
+  if (!amount || !date || !account_id || !category_id) {
+    errEl.textContent = 'Amount, date, account, and category are required.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const res = await fetch('/transactions/', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({amount, date, is_income, account_id, category_id, notes})
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    errEl.textContent = err.detail || 'Error saving transaction.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const newTx = await res.json();
+  allTransactions.unshift(newTx);
+  closeAddModal();
+  // Reset form
+  document.getElementById('newAmount').value = '';
+  document.getElementById('newNotes').value = '';
+  applyFilters();
+}
+
+function confirmDelete(id) {
+  const modal = document.getElementById('deleteModal');
+  modal.style.display = 'flex';
+  document.getElementById('confirmDeleteBtn').onclick = async () => {
+    const res = await fetch('/transactions/' + id, { method: 'DELETE' });
+    modal.style.display = 'none';
+    if (res.ok) {
+      allTransactions = allTransactions.filter(t => t.id !== id);
+      applyFilters();
+    } else {
+      alert('Failed to delete transaction.');
+    }
+  };
+}
+
+// Close modals on backdrop click
+document.getElementById('addModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeAddModal(); });
+document.getElementById('deleteModal').addEventListener('click', e => { if (e.target === e.currentTarget) document.getElementById('deleteModal').style.display='none'; });
+
+init();
+</script>
+{% endblock %}

@@ -47,3 +47,13 @@ def create_transaction(payload: TransactionCreate, db: Session = Depends(get_db)
     db.commit()
     db.refresh(txn)
     return txn
+
+
+@router.delete("/{txn_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_transaction(txn_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    txn = db.query(Transaction).filter(Transaction.id == txn_id, Transaction.user_id == user.id).first()
+    if not txn:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found")
+    db.delete(txn)
+    db.commit()
+

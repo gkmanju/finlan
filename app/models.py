@@ -18,6 +18,7 @@ class User(Base):
     holdings = relationship("Holding", back_populates="user")
     bank_transactions = relationship("BankTransaction", back_populates="user")
     broker_credentials = relationship("BrokerCredential", back_populates="user")
+    mortgage_accounts = relationship("MortgageAccount", back_populates="user")
 
 
 class Account(Base):
@@ -107,6 +108,7 @@ class PortfolioAccount(Base):
     institution = Column(String(100), nullable=False)  # Fidelity, Chase, etc.
     account_type = Column(String(50), nullable=False)  # investment, checking, savings, credit_card
     account_name = Column(String(150), nullable=True)  # Custom name/nickname
+    account_holder = Column(String(150), nullable=True)  # Actual account holder name (e.g., "John Doe")
     account_number_last4 = Column(String(4), nullable=True)  # Last 4 digits for identification
     balance = Column(Numeric(15, 2), default=0)
     currency = Column(String(3), default="USD")
@@ -195,3 +197,101 @@ class PlaidItem(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     
     user = relationship("User", backref="plaid_items")
+
+
+class ESPPGrant(Base):
+    """Store ESPP purchase grants with full tax lot tracking"""
+    __tablename__ = "espp_grants"
+    id = Column(Integer, primary_key=True, index=True)
+    
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    account_id = Column(Integer, ForeignKey("portfolio_accounts.id"), nullable=False)
+    
+    symbol = Column(String(20), nullable=False, index=True)
+    record_type = Column(String(50), nullable=True)  # e.g., "Employee Stock Purchase Plan"
+    purchase_date = Column(Date, nullable=True)
+    purchase_price = Column(Numeric(12, 4), nullable=True)  # Price per share at purchase
+    purchased_qty = Column(Numeric(16, 6), nullable=True)  # Original purchased quantity
+    sellable_qty = Column(Numeric(16, 6), nullable=True)  # Current sellable quantity
+    expected_gain_loss = Column(Numeric(12, 2), nullable=True)
+    est_market_value = Column(Numeric(12, 2), nullable=True)
+    
+    last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    user = relationship("User", backref="espp_grants")
+    account = relationship("PortfolioAccount", backref="espp_grants")
+
+
+class RSUGrant(Base):
+    """Store RSU grants with vesting schedule tracking"""
+    __tablename__ = "rsu_grants"
+    id = Column(Integer, primary_key=True, index=True)
+    
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    account_id = Column(Integer, ForeignKey("portfolio_accounts.id"), nullable=False)
+    
+    symbol = Column(String(20), nullable=False, index=True)
+    record_type = Column(String(50), nullable=True)  # e.g., "Restricted Stock Units"
+    grant_number = Column(String(50), nullable=True, index=True)  # Grant identifier
+    grant_date = Column(Date, nullable=True)
+    settlement_type = Column(String(50), nullable=True)
+    
+    granted_qty = Column(Numeric(16, 6), nullable=True)  # Total granted shares
+    withheld_qty = Column(Numeric(16, 6), nullable=True)  # Shares withheld for taxes
+    vested_qty = Column(Numeric(16, 6), nullable=True)  # Total vested shares
+    unvested_qty = Column(Numeric(16, 6), nullable=True)  # Shares still vesting
+    sellable_qty = Column(Numeric(16, 6), nullable=True)  # Shares available to sell
+    est_market_value = Column(Numeric(12, 2), nullable=True)
+    
+    last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    user = relationship("User", backref="rsu_grants")
+    account = relationship("PortfolioAccount", backref="rsu_grants")
+
+
+class MortgageAccount(Base):
+    """Mortgage loan details for non-Plaid servicers like RoundPoint"""
+    __tablename__ = "mortgage_accounts"
+    id = Column(Integer, primary_key=True, index=True)
+
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    servicer_name = Column(String(100), nullable=False)           # e.g., RoundPoint
+    loan_number = Column(String(50), nullable=True)
+    property_address = Column(String(250), nullable=True)
+    original_balance = Column(Numeric(12, 2), nullable=True)
+    interest_rate = Column(Numeric(6, 4), nullable=True)          # e.g., 6.875
+    loan_term_months = Column(Integer, nullable=True)             # 360 = 30yr
+    origination_date = Column(Date, nullable=True)
+    maturity_date = Column(Date, nullable=True)
+    monthly_payment = Column(Numeric(12, 2), nullable=True)       # P+I+Escrow
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User", back_populates="mortgage_accounts")
+    statements = relationship("MortgageStatement", back_populates="mortgage",
+                              cascade="all, delete-orphan", order_by="MortgageStatement.statement_date.desc()")
+
+
+class MortgageStatement(Base):
+    """One record per uploaded monthly statement"""
+    __tablename__ = "mortgage_statements"
+    id = Column(Integer, primary_key=True, index=True)
+
+    mortgage_id = Column(Integer, ForeignKey("mortgage_accounts.id"), nullable=False)
+    statement_date = Column(Date, nullable=True)
+    due_date = Column(Date, nullable=True)
+    unpaid_principal = Column(Numeric(12, 2), nullable=True)
+    interest_rate = Column(Numeric(6, 4), nullable=True)
+    payment_amount = Column(Numeric(12, 2), nullable=True)        # Total amount due
+    principal_portion = Column(Numeric(12, 2), nullable=True)
+    interest_portion = Column(Numeric(12, 2), nullable=True)
+    escrow_portion = Column(Numeric(12, 2), nullable=True)
+    escrow_balance = Column(Numeric(12, 2), nullable=True)
+    ytd_interest = Column(Numeric(12, 2), nullable=True)
+    ytd_taxes = Column(Numeric(12, 2), nullable=True)
+    raw_text = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    mortgage = relationship("MortgageAccount", back_populates="statements")

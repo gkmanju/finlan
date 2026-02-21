@@ -4,30 +4,12 @@
 <div style="padding: 0 8px;">
 
   <!-- Page Header -->
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px;">
     <div>
       <h2 style="margin: 0 0 4px 0;">Dashboard</h2>
       <div style="color: #64748b; font-size: 14px;">Welcome back, <strong>{{ username }}</strong> &nbsp;·&nbsp; <span id="asOfDate">Loading...</span></div>
     </div>
     <button onclick="refreshAll()" style="padding: 10px 20px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;">⟳ Refresh</button>
-  </div>
-
-  <!-- Page Description -->
-  <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 10px; padding: 14px 18px; margin-bottom: 24px; display: flex; gap: 14px; align-items: flex-start;">
-    <div style="font-size: 20px; margin-top: 1px;">💡</div>
-    <div style="font-size: 13px; color: #0369a1; line-height: 1.6;">
-      <strong>Your complete financial picture in one place.</strong>
-      This dashboard aggregates your net worth in real time — pulling together investment portfolios, bank balances, equity awards (ESPP/RSU), mortgage liability, and pending HSA reimbursements.
-      Use <strong>⟳ Refresh</strong> to sync the latest data, or navigate to each section for full detail and management.
-      <span style="display: inline-flex; gap: 10px; margin-top: 6px; flex-wrap: wrap;">
-        <a href="/portfolio" style="color: #0284c7; text-decoration: none; font-weight: 600;">📈 Portfolio</a>
-        <a href="/mortgage" style="color: #0284c7; text-decoration: none; font-weight: 600;">🏠 Mortgage</a>
-        <a href="/receipts" style="color: #0284c7; text-decoration: none; font-weight: 600;">🏥 Receipts &amp; HSA</a>
-        <a href="/equity-awards" style="color: #0284c7; text-decoration: none; font-weight: 600;">🏆 Equity Awards</a>
-        <a href="/transactions" style="color: #0284c7; text-decoration: none; font-weight: 600;">🕒 Transactions</a>
-        <a href="/portfolio/connect" style="color: #0284c7; text-decoration: none; font-weight: 600;">🔗 Connect Accounts</a>
-      </span>
-    </div>
   </div>
 
   <!-- Net Worth Banner -->
@@ -60,10 +42,6 @@
       <div>
         <div style="font-size: 12px; opacity: 0.6;">Mortgage Balance</div>
         <div style="font-size: 22px; font-weight: 600; color: #fbbf24;" id="mortgageTotal">$—</div>
-      </div>
-      <div>
-        <div style="font-size: 12px; opacity: 0.6;">HSA Pending</div>
-        <div style="font-size: 22px; font-weight: 600; color: #2dd4bf;" id="hsaTotal">$—</div>
       </div>
     </div>
   </div>
@@ -98,15 +76,6 @@
       <a href="/mortgage" style="font-size: 13px; color: #3b82f6; text-decoration: none;">Manage →</a>
     </div>
     <div id="mortgageSummaryList" style="font-size: 14px; color: #64748b;">Loading...</div>
-  </div>
-
-  <!-- HSA Pending Reimbursement -->
-  <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 24px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-      <h3 style="margin: 0; font-size: 16px; color: #1e293b;">🏥 HSA Reimbursement</h3>
-      <a href="/receipts" style="font-size: 13px; color: #3b82f6; text-decoration: none;">Manage →</a>
-    </div>
-    <div id="hsaSummaryContent"><span style="color:#94a3b8">Loading...</span></div>
   </div>
 
   <!-- Bottom Row: Recent Transactions + Quick Links -->
@@ -386,51 +355,19 @@ async function loadMortgage() {
   }
 }
 
-async function loadHsa() {
-  try {
-    const res = await fetch('/receipts/hsa-summary');
-    const d = await res.json();
-    document.getElementById('hsaTotal').textContent = d.pending_total > 0 ? fmt(d.pending_total) : '$0';
-    const html = d.pending_count === 0
-      ? '<span style="color:#94a3b8">No pending HSA reimbursements. <a href="/receipts" style="color:#3b82f6">Add receipts →</a></span>'
-      : `<div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;">
-          <div style="background:#f0fdfa;border:1px solid #99f6e4;border-radius:10px;padding:14px 20px;min-width:160px;">
-            <div style="font-size:11px;color:#0d9488;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Total Pending</div>
-            <div style="font-size:26px;font-weight:700;color:#0f766e;">${fmt(d.pending_total)}</div>
-            <div style="font-size:12px;color:#64748b;margin-top:2px;">${d.pending_count} receipt${d.pending_count !== 1 ? 's' : ''}</div>
-          </div>
-          <div style="display:flex;flex-direction:column;gap:8px;font-size:14px;">
-            <div style="display:flex;justify-content:space-between;gap:32px;">
-              <span style="color:#64748b;">✅ Submitted, awaiting reimbursement</span>
-              <span style="font-weight:600;color:#0d9488;">${fmt(d.submitted_total)}</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;gap:32px;">
-              <span style="color:#64748b;">📋 Not yet submitted</span>
-              <span style="font-weight:600;color:#f59e0b;">${fmt(d.not_submitted_total)}</span>
-            </div>
-          </div>
-        </div>`;
-    document.getElementById('hsaSummaryContent').innerHTML = html;
-    updateNetWorth();
-  } catch(e) {
-    document.getElementById('hsaSummaryContent').textContent = 'Error loading HSA data';
-  }
-}
-
 function updateNetWorth() {
   const toNum = s => parseFloat((s || '').replace(/[$,—]/g, '')) || 0;
   const portfolio = toNum(document.getElementById('portfolioTotal').textContent);
   const cash = toNum(document.getElementById('cashTotal').textContent);
   const equity = toNum(document.getElementById('equityTotal').textContent);
   const mortgage = toNum(document.getElementById('mortgageTotal').textContent);
-  const hsa = toNum(document.getElementById('hsaTotal').textContent);
-  const total = portfolio + cash + equity - mortgage + hsa;
+  const total = portfolio + cash + equity - mortgage;
   if (total !== 0) document.getElementById('netWorth').textContent = fmt(total);
 }
 
 async function refreshAll() {
   document.getElementById('netWorth').textContent = '$—';
-  await Promise.all([loadPortfolio(), loadEquity(), loadTransactions(), loadMortgage(), loadHsa()]);
+  await Promise.all([loadPortfolio(), loadEquity(), loadTransactions(), loadMortgage()]);
 }
 
 refreshAll();

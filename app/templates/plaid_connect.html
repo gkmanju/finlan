@@ -45,6 +45,42 @@
 <script>
 let linkHandler = null;
 
+{% if oauth_return %}
+// Returning from OAuth redirect — re-initialize Link with receivedRedirectUri to complete flow
+window.addEventListener('load', async () => {
+  try {
+    const response = await fetch('/portfolio/plaid/create-link-token', { method: 'POST' });
+    if (!response.ok) { const e = await response.json(); alert('OAuth resume error: ' + (e.detail || 'Failed')); return; }
+    const data = await response.json();
+    const handler = Plaid.create({
+      token: data.link_token,
+      receivedRedirectUri: window.location.href,
+      onSuccess: async (public_token, metadata) => {
+        try {
+          const formData = new FormData();
+          formData.append('public_token', public_token);
+          formData.append('institution_name', metadata.institution.name);
+          formData.append('institution_id', metadata.institution.institution_id);
+          const res = await fetch('/portfolio/plaid/exchange-token', { method: 'POST', body: formData });
+          if (res.ok) {
+            alert('✓ Account connected successfully! Syncing data...');
+            setTimeout(() => { window.location.href = '/portfolio/connect'; }, 1500);
+          } else {
+            const err = await res.json();
+            alert('Error connecting account: ' + (err.detail || JSON.stringify(err)));
+          }
+        } catch (e) { alert('Error: ' + e.message); }
+      },
+      onExit: (err) => {
+        if (err) alert('Plaid error: ' + (err.error_message || err.error_code || 'Unknown error'));
+        else window.location.href = '/portfolio/connect';
+      }
+    });
+    handler.open();
+  } catch (e) { alert('Error resuming OAuth: ' + e.message); }
+});
+{% endif %}
+
 async function openPlaidLink() {
   try {
     // Get link token from backend
@@ -135,6 +171,7 @@ async function loadConnectedItems() {
           </div>
           <div style="display: flex; gap: 10px;">
             <button onclick="syncItem(${item.id})" style="background: #10b981; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.9rem;">Sync Now</button>
+            <button onclick="updatePermissions(${item.id})" style="background: #6366f1; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.9rem;" title="Re-link to add investment holdings access (required for Vanguard, Fidelity, etc.)">🔄 Add Holdings Access</button>
             <button onclick="deleteItem(${item.id})" style="background: #ef4444; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.9rem;">Disconnect</button>
           </div>
         </div>
@@ -159,7 +196,10 @@ async function syncItem(itemId) {
     
     if (response.ok) {
       const result = await response.json();
-      alert(`✓ Sync complete!\nAccounts: ${result.accounts}\nTransactions: ${result.transactions}\nHoldings: ${result.holdings}`);
+      const holdingsNote = result.holdings === 0
+        ? '\n⚠️ No holdings synced. For investment accounts, click "Add Holdings Access" to re-link and grant investment permissions.'
+        : '';
+      alert(`✓ Sync complete!\nAccounts: ${result.accounts}\nTransactions: ${result.transactions}\nHoldings: ${result.holdings}${holdingsNote}`);
       loadConnectedItems();
     } else {
       const error = await response.json();
@@ -170,6 +210,43 @@ async function syncItem(itemId) {
   } finally {
     btn.disabled = false;
     btn.textContent = 'Sync Now';
+  }
+}
+
+async function updatePermissions(itemId) {
+  try {
+    // Get update link token
+    const response = await fetch(`/portfolio/plaid/update-link-token/${itemId}`, {
+      method: 'POST'
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      alert('Error: ' + error.detail);
+      return;
+    }
+    
+    const data = await response.json();
+    
+    // Open Plaid Link in update mode
+    const linkHandler = Plaid.create({
+      token: data.link_token,
+      onSuccess: async (public_token, metadata) => {
+        alert('✓ Permissions updated! Now sync to fetch account owner names.');
+        loadConnectedItems();
+      },
+      onExit: (err, metadata) => {
+        if (err) {
+          console.error('Plaid Link error:', err);
+          alert('Update error: ' + (err.error_message || err.error_code || 'Unknown error'));
+        }
+      }
+    });
+    
+    linkHandler.open();
+  } catch (error) {
+    console.error('Error:', error);
+    alert('Error updating permissions: ' + error.message);
   }
 }
 
