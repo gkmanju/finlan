@@ -11,11 +11,10 @@ BACKUP_NAME="finlan_backup_${TIMESTAMP}"
 RETENTION_DAYS=30
 
 # NAS Configuration
-NAS_IP="<NAS_IP>"
-NAS_USER="<NAS_USER>"
-NAS_SHARE="home"
-NAS_MOUNT="/mnt/nas_backup"
-NAS_BACKUP_DIR="${NAS_MOUNT}/<NAS_USER>/finlan_backups"
+NAS_IP="192.168.1.200"
+NAS_USER="nirvahaka"
+NAS_SSH_KEY="/home/yrus/.ssh/id_rsa"
+NAS_BACKUP_DIR="/volume1/home/nirvahaka/finlan_backups"
 
 # Create backup directory if it doesn't exist
 mkdir -p "${BACKUP_DIR}"
@@ -71,57 +70,30 @@ find "${BACKUP_DIR}" -maxdepth 1 -type d -name "finlan_backup_*" -mtime +${RETEN
 BACKUP_COUNT=$(find "${BACKUP_DIR}" -maxdepth 1 -type d -name "finlan_backup_*" | wc -l)
 echo "✓ Total backups: ${BACKUP_COUNT}"
 
-# Sync to NAS
+# Sync to NAS via SSH/rsync
 if [ -n "${NAS_IP}" ]; then
     echo ""
     echo "Syncing to NAS (${NAS_IP})..."
-    
-    # Create mount point if needed
-    sudo mkdir -p "${NAS_MOUNT}"
-    
-    # Check if already mounted
-    if mountpoint -q "${NAS_MOUNT}"; then
-        echo "NAS already mounted"
-    else
-        # Prompt for password if not in cron (interactive mode)
-        if [ -t 0 ]; then
-            echo "Enter NAS password for ${NAS_USER}:"
-            read -s NAS_PASSWORD
-            echo "${NAS_PASSWORD}" | sudo mount -t cifs "//${NAS_IP}/${NAS_SHARE}" "${NAS_MOUNT}" \
-                -o username="${NAS_USER}",password="${NAS_PASSWORD}",uid=$(id -u),gid=$(id -g)
-        else
-            # In cron mode, try credentials file
-            if [ -f /opt/finlan/.nas_credentials ]; then
-                sudo mount -t cifs "//${NAS_IP}/${NAS_SHARE}" "${NAS_MOUNT}" \
-                    -o credentials=/opt/finlan/.nas_credentials,uid=$(id -u),gid=$(id -g)
-            else
-                echo "⚠ NAS credentials file not found, skipping NAS sync"
-                echo "Backup completed at $(date)"
-                exit 0
-            fi
-        fi
-    fi
-    
-    if mountpoint -q "${NAS_MOUNT}"; then
-        # Create backup directory on NAS
-        sudo mkdir -p "${NAS_BACKUP_DIR}"
-        
-        # Sync backup to NAS (exclude symlinks since CIFS doesn't support them)
-        sudo rsync -a --delete --no-links "${BACKUP_DIR}/" "${NAS_BACKUP_DIR}/"
-        
+
+    # Ensure backup dir exists on NAS
+    ssh -i "${NAS_SSH_KEY}" -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=no \
+        "${NAS_USER}@${NAS_IP}" "mkdir -p ${NAS_BACKUP_DIR}"
+
+    if [ $? -eq 0 ]; then
+        # Rsync over SSH - exclude symlinks (NAS may not support them)
+        rsync -av --delete --no-links \
+            -e "ssh -i ${NAS_SSH_KEY} -o BatchMode=yes -o StrictHostKeyChecking=no" \
+            "${BACKUP_DIR}/" "${NAS_USER}@${NAS_IP}:${NAS_BACKUP_DIR}/"
+
         if [ $? -eq 0 ]; then
-            NAS_SIZE=$(sudo du -sh "${NAS_BACKUP_DIR}" | cut -f1)
+            NAS_SIZE=$(ssh -i "${NAS_SSH_KEY}" -o BatchMode=yes -o StrictHostKeyChecking=no \
+                "${NAS_USER}@${NAS_IP}" "du -sh ${NAS_BACKUP_DIR}" | cut -f1)
             echo "✓ Synced to NAS: ${NAS_SIZE}"
-            
-            # Unmount (if we mounted it)
-            if [ -t 0 ]; then
-                sudo umount "${NAS_MOUNT}"
-            fi
         else
-            echo "✗ NAS sync failed"
+            echo "✗ NAS rsync failed"
         fi
     else
-        echo "✗ Failed to mount NAS"
+        echo "✗ Cannot connect to NAS at ${NAS_IP}"
     fi
 fi
 
