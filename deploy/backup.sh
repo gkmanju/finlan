@@ -56,6 +56,19 @@ else
     echo "⚠ Uploads directory not found at ${UPLOADS_DIR}"
 fi
 
+# Backup docs (tax worksheets - NAS only, not in git)
+DOCS_DIR="/opt/finlan/docs"
+if [ -d "${DOCS_DIR}" ]; then
+    echo "Backing up docs..."
+    tar -czf "${BACKUP_PATH}/docs.tar.gz" -C "$(dirname ${DOCS_DIR})" "$(basename ${DOCS_DIR})"
+    if [ $? -eq 0 ]; then
+        DOC_COUNT=$(find "${DOCS_DIR}" -type f | wc -l)
+        echo "✓ Docs backed up: ${DOC_COUNT} files"
+    else
+        echo "✗ Docs backup failed"
+    fi
+fi
+
 # Write a manifest of what's in this backup
 cat > "${BACKUP_PATH}/manifest.txt" <<EOF
 FinLAN Backup Manifest
@@ -65,6 +78,7 @@ Hostname  : $(hostname)
 DB size   : $(du -sh ${DATA_DIR}/finlan.db 2>/dev/null | cut -f1 || echo 'n/a')
 Receipts  : ${RECEIPT_COUNT:-0} files
 Tax docs  : ${TAX_COUNT:-0} files
+Docs      : ${DOC_COUNT:-0} files
 EOF
 echo "✓ Manifest written"
 
