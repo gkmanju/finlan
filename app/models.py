@@ -19,6 +19,8 @@ class User(Base):
     bank_transactions = relationship("BankTransaction", back_populates="user")
     broker_credentials = relationship("BrokerCredential", back_populates="user")
     mortgage_accounts = relationship("MortgageAccount", back_populates="user")
+    tax_documents = relationship("TaxDocument", back_populates="user")
+    business_transactions = relationship("BusinessTransaction", back_populates="user")
 
 
 class Account(Base):
@@ -295,3 +297,50 @@ class MortgageStatement(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     mortgage = relationship("MortgageAccount", back_populates="statements")
+
+
+class TaxDocument(Base):
+    """Tax document vault — store and track annual tax forms (W-2, 1099s, 1098s, etc.)"""
+    __tablename__ = "tax_documents"
+    id = Column(Integer, primary_key=True, index=True)
+
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    tax_year = Column(Integer, nullable=False, index=True)
+    # W2 | 1099_INT | 1098_T | 1098 | 3922 | 1099_CONSOLIDATED
+    form_type = Column(String(40), nullable=False)
+    issuer = Column(String(150), nullable=True)       # Employer, bank, brokerage, university
+    description = Column(String(255), nullable=True)  # e.g., "Primary employment", "Brokerage XXXX"
+    # expected = received but not yet uploaded / uploaded = file stored / filed = used in return
+    status = Column(String(20), default="uploaded")
+    extracted_data = Column(Text, nullable=True)      # JSON blob of form-specific key figures
+    file_name = Column(String(255), nullable=True)    # stored filename on disk
+    original_name = Column(String(255), nullable=True)
+    content_type = Column(String(100), nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User", back_populates="tax_documents")
+
+
+class BusinessTransaction(Base):
+    """Wave CSV imported transactions for Schedule C / sole proprietorship P&L"""
+    __tablename__ = "business_transactions"
+    id = Column(Integer, primary_key=True, index=True)
+
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    tax_year = Column(Integer, nullable=False, index=True)
+
+    transaction_date = Column(Date, nullable=False)
+    description = Column(String(255), nullable=False)
+    amount = Column(Numeric(12, 2), nullable=False)        # positive = income, negative = expense
+    account_name = Column(String(150), nullable=True)
+    wave_category = Column(String(150), nullable=True)     # raw Wave category name
+    schedule_c_line = Column(String(10), nullable=True)    # e.g. "1", "8", "18", "24b"
+    schedule_c_label = Column(String(150), nullable=True)  # human label for that line
+    is_income = Column(Boolean, default=False)
+    notes = Column(Text, nullable=True)
+    import_batch = Column(String(36), nullable=True)       # UUID — lets user replace a batch
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="business_transactions")

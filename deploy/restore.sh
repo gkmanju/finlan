@@ -4,8 +4,8 @@
 # Restores database and uploaded files from backup
 
 BACKUP_DIR="/opt/finlan/backups"
-DATA_DIR="/opt/finlan/data"
-UPLOADS_DIR="/opt/finlan/app/uploads"
+DATA_DIR="/opt/finlan"
+UPLOADS_DIR="/opt/finlan/uploads"
 
 # Function to list available backups
 list_backups() {
@@ -81,6 +81,10 @@ echo "Creating safety backup of current state..."
 if [ -f "${DATA_DIR}/finlan.db" ]; then
     cp "${DATA_DIR}/finlan.db" "${SAFETY_BACKUP}/"
 fi
+if [ -d "${UPLOADS_DIR}" ]; then
+    tar -czf "${SAFETY_BACKUP}/uploads.tar.gz" \
+        -C "$(dirname ${UPLOADS_DIR})" "$(basename ${UPLOADS_DIR})" 2>/dev/null || true
+fi
 
 # Restore database
 if [ -f "${RESTORE_PATH}/finlan.db" ]; then
@@ -93,12 +97,12 @@ else
     echo "✗ Database backup not found in ${RESTORE_PATH}"
 fi
 
-# Restore uploads
+# Restore uploads (archive contains the 'uploads/' folder itself under app/)
 if [ -f "${RESTORE_PATH}/uploads.tar.gz" ]; then
     echo "Restoring uploaded files..."
     rm -rf "${UPLOADS_DIR}"
-    mkdir -p "${UPLOADS_DIR}"
-    tar -xzf "${RESTORE_PATH}/uploads.tar.gz" -C "${UPLOADS_DIR}"
+    mkdir -p "$(dirname ${UPLOADS_DIR})"
+    tar -xzf "${RESTORE_PATH}/uploads.tar.gz" -C "$(dirname ${UPLOADS_DIR})"
     chown -R yrus:yrus "${UPLOADS_DIR}"
     echo "✓ Uploads restored"
 else

@@ -4,8 +4,8 @@
 # Backs up database and uploaded files
 
 BACKUP_DIR="/opt/finlan/backups"
-DATA_DIR="/opt/finlan/data"
-UPLOADS_DIR="/opt/finlan/app/uploads"
+DATA_DIR="/opt/finlan"
+UPLOADS_DIR="/opt/finlan/uploads"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 BACKUP_NAME="finlan_backup_${TIMESTAMP}"
 RETENTION_DAYS=30
@@ -40,20 +40,33 @@ else
     exit 1
 fi
 
-# Backup uploaded files
+# Backup uploaded files (receipts + tax_docs subdirs)
 if [ -d "${UPLOADS_DIR}" ]; then
     echo "Backing up uploaded files..."
-    tar -czf "${BACKUP_PATH}/uploads.tar.gz" -C "${UPLOADS_DIR}" .
+    tar -czf "${BACKUP_PATH}/uploads.tar.gz" -C "$(dirname ${UPLOADS_DIR})" "$(basename ${UPLOADS_DIR})"
     if [ $? -eq 0 ]; then
         echo "✓ Uploads backed up successfully"
-        UPLOAD_COUNT=$(ls -1 "${UPLOADS_DIR}" | wc -l)
-        echo "  Files backed up: ${UPLOAD_COUNT}"
+        RECEIPT_COUNT=$(find "${UPLOADS_DIR}" -maxdepth 2 -not -path '*/tax_docs/*' -type f | wc -l)
+        TAX_COUNT=$(find "${UPLOADS_DIR}/tax_docs" -type f 2>/dev/null | wc -l)
+        echo "  Receipts: ${RECEIPT_COUNT}  Tax docs: ${TAX_COUNT}"
     else
         echo "✗ Uploads backup failed"
     fi
 else
-    echo "⚠ Uploads directory not found"
+    echo "⚠ Uploads directory not found at ${UPLOADS_DIR}"
 fi
+
+# Write a manifest of what's in this backup
+cat > "${BACKUP_PATH}/manifest.txt" <<EOF
+FinLAN Backup Manifest
+======================
+Timestamp : ${TIMESTAMP}
+Hostname  : $(hostname)
+DB size   : $(du -sh ${DATA_DIR}/finlan.db 2>/dev/null | cut -f1 || echo 'n/a')
+Receipts  : ${RECEIPT_COUNT:-0} files
+Tax docs  : ${TAX_COUNT:-0} files
+EOF
+echo "✓ Manifest written"
 
 # Get backup size
 BACKUP_SIZE=$(du -sh "${BACKUP_PATH}" | cut -f1)

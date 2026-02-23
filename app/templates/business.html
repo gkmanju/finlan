@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+/* ── Business / Schedule C page ── */
+.biz-header { display:flex; align-items:center; gap:1rem; flex-wrap:wrap; margin-bottom:1.2rem; }
+.biz-header h2 { margin:0; flex:1; }
+.year-tabs { display:flex; gap:.4rem; }
+.year-tabs a {
+  padding:.3rem .8rem; border-radius:6px; text-decoration:none;
+  background:#e5e7eb; color:#374151; font-size:.85rem;
+}
+.year-tabs a.active { background:#4f46e5; color:#fff; }
+
+/* Summary cards */
+.summary-grid {
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:1rem; margin-bottom:1.5rem;
+}
+.sum-card {
+  background:#fff; border-radius:10px; padding:1rem 1.2rem;
+  box-shadow:0 1px 4px rgba(0,0,0,.08);
+}
+.sum-card .label { font-size:.75rem; color:#6b7280; text-transform:uppercase; letter-spacing:.05em; }
+.sum-card .val { font-size:1.5rem; font-weight:700; margin-top:.2rem; }
+.sum-card.income .val  { color:#059669; }
+.sum-card.expense .val { color:#dc2626; }
+.sum-card.profit .val  { color:#4f46e5; }
+.sum-card.se-tax .val  { color:#b45309; }
+
+/* Schedule C table */
+.sch-c { background:#fff; border-radius:10px; padding:1.2rem;
+         box-shadow:0 1px 4px rgba(0,0,0,.08); margin-bottom:1.5rem; }
+.sch-c h3 { margin:0 0 .8rem; font-size:1rem; }
+.sch-c table { width:100%; border-collapse:collapse; font-size:.9rem; }
+.sch-c th { text-align:left; padding:.4rem .6rem; background:#f3f4f6;
+            font-size:.78rem; text-transform:uppercase; color:#6b7280; }
+.sch-c td { padding:.45rem .6rem; border-top:1px solid #f0f0f0; }
+.sch-c tr.income-row td { color:#059669; }
+.sch-c tr.total-row td { font-weight:700; background:#f9fafb; border-top:2px solid #d1d5db; }
+.sch-c .meals-note { font-size:.75rem; color:#b45309; }
+.sch-c .se-note { font-size:.8rem; color:#6b7280; margin-top:.6rem; }
+
+/* Import panel */
+.import-panel {
+  background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px;
+  padding:1.2rem; margin-bottom:1.5rem;
+}
+.import-panel h3 { margin:0 0 .8rem; font-size:.95rem; color:#1d4ed8; }
+.import-form { display:flex; gap:.8rem; flex-wrap:wrap; align-items:flex-end; }
+.import-form label { font-size:.82rem; color:#374151; }
+.import-form input[type=file] { font-size:.85rem; }
+.import-form select, .import-form input[type=number] {
+  padding:.35rem .6rem; border:1px solid #d1d5db; border-radius:6px; font-size:.85rem;
+}
+.import-form .btn-import {
+  background:#1d4ed8; color:#fff; border:none; border-radius:6px;
+  padding:.45rem 1.1rem; cursor:pointer; font-size:.85rem;
+}
+.import-form .btn-import:hover { background:#1e40af; }
+.replace-row { display:flex; align-items:center; gap:.5rem; font-size:.82rem; color:#374151; margin-top:.5rem; }
+.wave-hint { font-size:.78rem; color:#6b7280; margin-top:.6rem; }
+.wave-hint b { color:#374151; }
+
+/* Transaction table */
+.txn-section { background:#fff; border-radius:10px; padding:1.2rem;
+               box-shadow:0 1px 4px rgba(0,0,0,.08); }
+.txn-section h3 { margin:0 0 .8rem; font-size:1rem; }
+.txn-table { width:100%; border-collapse:collapse; font-size:.84rem; }
+.txn-table th { background:#f3f4f6; padding:.4rem .6rem; text-align:left;
+                font-size:.75rem; text-transform:uppercase; color:#6b7280; position:sticky; top:0; }
+.txn-table td { padding:.4rem .6rem; border-top:1px solid #f5f5f5; vertical-align:middle; }
+.txn-table tr:hover td { background:#fafafa; }
+.badge-income  { background:#d1fae5; color:#065f46; padding:.15rem .5rem; border-radius:4px; font-size:.75rem; }
+.badge-expense { background:#fee2e2; color:#991b1b; padding:.15rem .5rem; border-radius:4px; font-size:.75rem; }
+.amt-income  { color:#059669; font-weight:600; }
+.amt-expense { color:#dc2626; font-weight:600; }
+.btn-del { background:none; border:none; color:#dc2626; cursor:pointer; font-size:1rem; padding:.1rem .3rem; }
+.btn-del:hover { background:#fee2e2; border-radius:4px; }
+.reclassify-sel {
+  font-size:.78rem; padding:.2rem .4rem; border:1px solid #e5e7eb;
+  border-radius:4px; background:#fff; cursor:pointer;
+}
+
+.empty-state { text-align:center; padding:3rem 1rem; color:#9ca3af; }
+.empty-state .icon { font-size:2.5rem; margin-bottom:.5rem; }
+</style>
+
+<div class="biz-header">
+  <h2>📊 Business Income — Schedule C</h2>
+  <div class="year-tabs">
+    {% for y in years %}
+    <a href="/business?year={{ y }}" class="{{ 'active' if y == year else '' }}">{{ y }}</a>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Import panel -->
+<div class="import-panel">
+  <h3>📥 Import Wave CSV</h3>
+  <form method="post" action="/business/import-wave" enctype="multipart/form-data">
+    <div class="import-form">
+      <div>
+        <label>Tax Year<br>
+          <input type="number" name="year" value="{{ year }}" min="2020" max="2030" style="width:80px;">
+        </label>
+      </div>
+      <div>
+        <label>Wave CSV File<br>
+          <input type="file" name="file" accept=".csv" required>
+        </label>
+      </div>
+      <button class="btn-import" type="submit">Import</button>
+    </div>
+    <div class="replace-row">
+      <input type="checkbox" name="replace" id="chk-replace" value="true">
+      <label for="chk-replace">Replace existing {{ year }} data (re-import)</label>
+    </div>
+  </form>
+  <p class="wave-hint">
+    <b>Option A (Recommended) — P&amp;L Report:</b>
+    Wave → <b>Reports → Profit &amp; Loss</b> → set period Jan 1–Dec 31 {{ year }} → <b>Export CSV</b>.<br>
+    <b>Option B — Transactions:</b>
+    Wave → <b>Accounting → Transactions</b> → filter {{ year }} → <b>Export CSV</b> (if available on your plan).<br>
+    Format is auto-detected. Categories are mapped to Schedule C lines automatically.
+    Use the dropdown on each row to correct any mis-categorized items.
+  </p>
+</div>
+
+{% if summary %}
+<!-- Summary cards -->
+<div class="summary-grid">
+  <div class="sum-card income">
+    <div class="label">Gross Income (Line 1)</div>
+    <div class="val">${{ "%.2f"|format(summary.gross_income) }}</div>
+  </div>
+  <div class="sum-card expense">
+    <div class="label">Total Deductible Expenses</div>
+    <div class="val">${{ "%.2f"|format(summary.deductible_expenses) }}</div>
+  </div>
+  <div class="sum-card profit">
+    <div class="label">Net Profit (Line 31)</div>
+    <div class="val">${{ "%.2f"|format(summary.net_profit) }}</div>
+  </div>
+  <div class="sum-card se-tax">
+    <div class="label">Est. Self-Employment Tax</div>
+    <div class="val">${{ "%.2f"|format(summary.se_tax) }}</div>
+    <div style="font-size:.72rem;color:#9ca3af;">×92.35%×15.3%</div>
+  </div>
+</div>
+
+<!-- Schedule C summary -->
+<div class="sch-c">
+  <h3>Schedule C — Line-by-Line Summary ({{ year }})</h3>
+  <table>
+    <thead>
+      <tr><th>Line</th><th>Description</th><th style="text-align:right">Amount</th><th style="text-align:right">Deductible</th></tr>
+    </thead>
+    <tbody>
+      <tr class="income-row">
+        <td>1</td><td>Gross Receipts / Sales</td>
+        <td style="text-align:right">${{ "%.2f"|format(summary.gross_income) }}</td>
+        <td style="text-align:right">—</td>
+      </tr>
+      {% for line, info in summary.expense_lines.items() %}
+      <tr>
+        <td>{{ line }}</td>
+        <td>
+          {{ info.label }}
+          {% if line == "24b" %}<span class="meals-note"> (50% rule applies)</span>{% endif %}
+        </td>
+        <td style="text-align:right">${{ "%.2f"|format(info.amount) }}</td>
+        <td style="text-align:right">${{ "%.2f"|format(info.deductible) }}</td>
+      </tr>
+      {% endfor %}
+      <tr class="total-row">
+        <td colspan="3">Net Profit (Line 31)</td>
+        <td style="text-align:right">${{ "%.2f"|format(summary.net_profit) }}</td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="se-note">
+    ⚠️ Net profit flows to <b>Form 1040 Schedule 1 Line 3</b> and <b>Schedule SE</b>.
+    SE tax deduction (½ of SE tax) goes on <b>Schedule 1 Line 15</b>.
+    QBI deduction (§199A, up to 20%) goes on <b>1040 Line 13</b>.
+  </p>
+</div>
+{% endif %}
+
+<!-- Transaction table -->
+<div class="txn-section">
+  <h3>Transactions — {{ year }} ({{ rows|length }} rows)</h3>
+  {% if rows %}
+  <div style="overflow-x:auto;">
+  <table class="txn-table">
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Description</th>
+        <th>Wave Category</th>
+        <th>Schedule C</th>
+        <th style="text-align:right">Amount</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="txn-body">
+      {% for r in rows %}
+      <tr id="row-{{ r.id }}">
+        <td>{{ r.transaction_date.strftime('%m/%d/%Y') }}</td>
+        <td>{{ r.description }}</td>
+        <td>
+          <span class="{{ 'badge-income' if r.is_income else 'badge-expense' }}">
+            {{ r.wave_category or '—' }}
+          </span>
+        </td>
+        <td>
+          <select class="reclassify-sel" onchange="reclassify({{ r.id }}, this)">
+            <option value="1|Gross Receipts / Sales|1"    {{ 'selected' if r.schedule_c_line=='1' }}>L1 – Income</option>
+            <option value="8|Advertising|0"               {{ 'selected' if r.schedule_c_line=='8' }}>L8 – Advertising</option>
+            <option value="9|Car & Truck Expenses|0"      {{ 'selected' if r.schedule_c_line=='9' }}>L9 – Car &amp; Truck</option>
+            <option value="10|Commissions & Fees|0"       {{ 'selected' if r.schedule_c_line=='10' }}>L10 – Commissions</option>
+            <option value="11|Contract Labor|0"           {{ 'selected' if r.schedule_c_line=='11' }}>L11 – Contract Labor</option>
+            <option value="13|Depreciation|0"             {{ 'selected' if r.schedule_c_line=='13' }}>L13 – Depreciation</option>
+            <option value="15|Insurance|0"                {{ 'selected' if r.schedule_c_line=='15' }}>L15 – Insurance</option>
+            <option value="16a|Mortgage Interest|0"       {{ 'selected' if r.schedule_c_line=='16a' }}>L16a – Mortgage Int.</option>
+            <option value="16b|Interest - Other|0"        {{ 'selected' if r.schedule_c_line=='16b' }}>L16b – Interest Other</option>
+            <option value="17|Legal & Professional|0"     {{ 'selected' if r.schedule_c_line=='17' }}>L17 – Legal/Prof.</option>
+            <option value="18|Office Expense|0"           {{ 'selected' if r.schedule_c_line=='18' }}>L18 – Office Expense</option>
+            <option value="20b|Rent/Lease|0"              {{ 'selected' if r.schedule_c_line=='20b' }}>L20b – Rent/Lease</option>
+            <option value="21|Repairs & Maintenance|0"    {{ 'selected' if r.schedule_c_line=='21' }}>L21 – Repairs</option>
+            <option value="22|Supplies|0"                 {{ 'selected' if r.schedule_c_line=='22' }}>L22 – Supplies</option>
+            <option value="23|Taxes & Licenses|0"         {{ 'selected' if r.schedule_c_line=='23' }}>L23 – Taxes/Licenses</option>
+            <option value="24a|Travel|0"                  {{ 'selected' if r.schedule_c_line=='24a' }}>L24a – Travel</option>
+            <option value="24b|Meals (50%)|0"             {{ 'selected' if r.schedule_c_line=='24b' }}>L24b – Meals (50%)</option>
+            <option value="25|Utilities|0"                {{ 'selected' if r.schedule_c_line=='25' }}>L25 – Utilities</option>
+            <option value="26|Wages|0"                    {{ 'selected' if r.schedule_c_line=='26' }}>L26 – Wages</option>
+            <option value="30|Home Office|0"              {{ 'selected' if r.schedule_c_line=='30' }}>L30 – Home Office</option>
+            <option value="48|Other Expenses|0"           {{ 'selected' if r.schedule_c_line=='48' }}>L48 – Other</option>
+          </select>
+        </td>
+        <td style="text-align:right" class="{{ 'amt-income' if r.is_income else 'amt-expense' }}">
+          {{ '+' if r.is_income else '-' }}${{ "%.2f"|format(r.amount|abs) }}
+        </td>
+        <td>
+          <button class="btn-del" onclick="deleteTxn({{ r.id }})" title="Delete">✕</button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="icon">📂</div>
+    <div>No transactions for {{ year }}.<br>Export your Wave transactions CSV and import above.</div>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+async function reclassify(id, sel) {
+  const [line, label, isIncome] = sel.value.split('|');
+  const fd = new FormData();
+  fd.append('schedule_c_line', line);
+  fd.append('schedule_c_label', label);
+  fd.append('is_income', isIncome === '1' ? 'true' : 'false');
+  const r = await fetch(`/business/${id}/reclassify`, { method:'POST', body:fd });
+  if (r.ok) {
+    sel.closest('tr').style.background = '#f0fdf4';
+    setTimeout(() => sel.closest('tr').style.background = '', 1200);
+    // Refresh summary without full reload
+    setTimeout(() => location.reload(), 1300);
+  } else {
+    alert('Reclassify failed');
+  }
+}
+
+async function deleteTxn(id) {
+  if (!confirm('Delete this transaction?')) return;
+  const r = await fetch(`/business/${id}`, { method:'DELETE' });
+  if (r.ok) {
+    document.getElementById('row-' + id).remove();
+  } else {
+    alert('Delete failed');
+  }
+}
+</script>
+{% endblock %}

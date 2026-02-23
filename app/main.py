@@ -19,6 +19,8 @@ from .routers import categories as categories_router
 from .routers import imports as imports_router
 from .routers import portfolio as portfolio_router
 from .routers import mortgage as mortgage_router
+from .routers import tax as tax_router
+from .routers import business as business_router
 from .auth import get_current_user
 from .auth import verify_password
 
@@ -65,6 +67,8 @@ app.include_router(categories_router.router)
 app.include_router(imports_router.router)
 app.include_router(portfolio_router.router)
 app.include_router(mortgage_router.router)
+app.include_router(tax_router.router)
+app.include_router(business_router.router)
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request, db: Session = Depends(get_db), user=Depends(get_current_user)):

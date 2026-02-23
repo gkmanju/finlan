@@ -10,3 +10,7 @@ README_PRIVATE.md
 .nas_credentials
 backups/
 data/
+
+# Private tax documents — NAS only
+docs/
+*.bak
