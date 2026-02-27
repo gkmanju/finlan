@@ -10,11 +10,16 @@ TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 BACKUP_NAME="finlan_backup_${TIMESTAMP}"
 RETENTION_DAYS=30
 
-# NAS Configuration
-NAS_IP="192.168.1.200"
-NAS_USER="nirvahaka"
-NAS_SSH_KEY="/home/yrus/.ssh/id_rsa"
-NAS_BACKUP_DIR="/volume1/home/nirvahaka/finlan_backups"
+# NAS Configuration (set these in environment or override here)
+NAS_IP="${NAS_IP:-192.168.1.200}"
+NAS_USER="${NAS_USER:-}"
+NAS_SSH_KEY="${NAS_SSH_KEY:-$HOME/.ssh/id_rsa}"
+NAS_BACKUP_DIR="${NAS_BACKUP_DIR:-/volume1/backups/finlan_backups}"
+
+if [ -z "$NAS_USER" ]; then
+    echo "ERROR: NAS_USER environment variable must be set" >&2
+    exit 1
+fi
 
 # Create backup directory if it doesn't exist
 mkdir -p "${BACKUP_DIR}"

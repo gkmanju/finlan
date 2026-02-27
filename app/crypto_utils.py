@@ -16,7 +16,9 @@ class CredentialEncryptor:
         Initialize with a secret key from environment or provided
         """
         if secret_key is None:
-            secret_key = os.getenv('SECRET_KEY', 'default-secret-key-change-me')
+            secret_key = os.getenv('SECRET_KEY')
+        if not secret_key:
+            raise RuntimeError("SECRET_KEY environment variable must be set")
         
         # Derive a 32-byte key from the secret
         kdf = PBKDF2HMAC(

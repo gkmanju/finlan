@@ -5,7 +5,7 @@ from app.main import app
 client = TestClient(app)
 
 
-def auth_headers(username="alice", password="secret123"):
+def auth_headers(username="alice", password="test-password-for-tests"):
     # register
     r = client.post("/auth/register", json={"username": username, "password": password})
     if r.status_code not in (200, 400):
